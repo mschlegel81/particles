@@ -13,13 +13,26 @@ TYPE
     color:TVector3;
   end;
 
+  { TParticleEngine }
+
   TParticleEngine = class
   private
+    //Pseudo constants
+    spherePoints: array [0..1023] of TVector3;
+    //State
     attractionMode:byte;
     commonTargetColor:TVector3;
     lissajousParam:array[0..2] of byte;
-    spherePoints: array [0..1023] of TVector3;
     Particle: array [0..1023] of TParticle;
+
+    PROCEDURE updateTargets_cyclic(CONST progress:double);
+    PROCEDURE updateTargets_groupedCyclic(CONST progress:double);
+    PROCEDURE updateTargets_cube(CONST progress:double);
+    PROCEDURE updateTargets_heart(CONST progress:double);
+    PROCEDURE updateTargets_sphere(CONST progress:double);
+    PROCEDURE updateTargets_icosahedron(CONST progress:double);
+    PROCEDURE updateTargets_wave(CONST progress:double);
+    PROCEDURE updateTargets_grid(CONST progress:double);
   public
     CONSTRUCTOR create;
     DESTRUCTOR destroy; override;
@@ -50,13 +63,10 @@ USES math,sysutils;
 CONST
   WHITE:TVector3=(1,1,1);
   ATTRACTION_MODE_COUNT=21;
+  FIBFAK=2*pi/sqr((sqrt(5)-1)/2);
 
-PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks:longint; CONST dt:double);
-  CONST FIBFAK=2*pi/sqr((sqrt(5)-1)/2);
-        C_IcosahedronEdges:array[0..29,0..1] of byte=((0,1),(1,2),(2,6),(6,9),(9,10),(10,11),(11,5),(5,6),(6,11),(11,7),(7,10),(10,4),(4,7),(7,3),(3,4),(4,8),(8,9),(9,11),
-                                                      (3,5),(5,1),(1,3),(3,0),(0,2),(2,8),(8,0),(0,4),
-                                                      (8,10),(5,7),(2,9),(1,6));
-        C_clusterChunk:array[0..12] of longint=(0,85,171,256,341,427,512,597,683,768,853,939,1024);
+PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint; CONST dt: double);
+  CONST C_clusterChunk:array[0..12] of longint=(0,85,171,256,341,427,512,597,683,768,853,939,1024);
         ZERO_VECTOR:TVector3=(0,0,0);
 
   PROCEDURE fixBrokenPositions;
@@ -72,127 +82,6 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks:longint; CONST dt:double
       if anyInvalid(p) or anyInvalid(v) then begin
         p:=spherePoints[i]*5;
         v:=ZERO_VECTOR;
-      end;
-    end;
-
-  PROCEDURE updateTargets_cyclic;
-    VAR i,k:longint;
-        r:double;
-    begin
-      for i:=0 to length(Particle)-1 do begin
-       k:=(i+1) mod length(Particle);
-       Particle[i].targetPosition:=Particle[k].p+Particle[k].v*(20*dt);
-       r:=euklideanNorm(Particle[i].targetPosition);
-       if      r<0.5 then Particle[i].targetPosition*=0.5/r
-       else if r>2   then Particle[i].targetPosition*=2  /r;
-     end;
-   end;
-
-  PROCEDURE updateTargets_groupedCyclic;
-    VAR i,k:longint;
-    begin
-      for i:=0 to length(Particle)-1 do begin
-       k:=((i+(i shr 5)+modeTicks shr 8) and 31) or (i and not(31));
-       with Particle[i] do begin
-         targetPosition:=Particle[k].p+Particle[k].v*(20*dt);
-         targetPosition*=1/euklideanNorm(targetPosition);
-       end;
-     end;
-   end;
-
-  PROCEDURE updateTargets_cube;
-    CONST C_cubeNodes:array[0..7] of TVector3=((-1,-1,-1),(-1,-1,1),(1,-1,-1),(1,-1,1),(-1,1,-1),(-1,1,1),(1,1,-1),(1,1,1));
-          C_cubeTrip1:array[0..7] of longint=(0,1,3,2,6,7,5,4);
-          C_cubeTrip2:array[0..7] of longint=(0,2,6,4,5,7,3,1);
-          C_cubeTrip3:array[0..7] of longint=(0,4,5,1,3,7,6,2);
-    VAR i,k:longint;
-        tau:double;
-    begin
-      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-       tau:=i/length(Particle)*8+modeTicks/10000;
-       k:=trunc(tau);
-       tau:=frac(tau);
-       case i mod 3 of
-         0: targetPosition:=C_cubeNodes[C_cubeTrip1[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip1[(k+1) and 7]]*   tau;
-         1: targetPosition:=C_cubeNodes[C_cubeTrip2[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip2[(k+1) and 7]]*   tau;
-       else targetPosition:=C_cubeNodes[C_cubeTrip3[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip3[(k+1) and 7]]*   tau;
-       end;
-     end;
-   end;
-
-  PROCEDURE updateTargets_heart;
-    VAR i,k:longint;
-        tau:double;
-        t  :double;
-    begin
-      t:=modeTicks/20000;
-      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        tau:=(i/length(Particle)+t)*2*pi;
-        k:=i and 3;
-        targetPosition[2]:=sin(k*t*pi)*(1-0.1*k)*(0.75  *sin(tau)-0.25  *sin(3*tau));
-        targetPosition[0]:=cos(k*t*pi)*(1-0.1*k)*(0.75  *sin(tau)-0.25  *sin(3*tau));
-        targetPosition[1]:=(1-0.1*k)*(0.8125*cos(tau)-0.3125*cos(2*tau)-0.125*cos(3*tau)-0.0625*cos(4*tau));
-      end;
-    end;
-
-  PROCEDURE updateTargets_sphere;
-    VAR i:longint;
-        r:double;
-    begin
-      r:=modeTicks/20000;
-      for i:=0 to length(Particle)-1 do with Particle[i] do
-      targetPosition:=spherePoints[i]*r;
-    end;
-
-  PROCEDURE updateTargets_icosahedron;
-    VAR i,k:longint;
-        tau:double;
-    begin
-      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        tau:=(i/length(Particle))*length(C_IcosahedronEdges);
-        k:=trunc(tau);
-        tau:=frac(tau);
-        k:=k mod length(C_IcosahedronEdges);
-        targetPosition:=C_IcosahedronNodes[C_IcosahedronEdges[k,0]]*(1-tau)+
-                        C_IcosahedronNodes[C_IcosahedronEdges[k,1]]*(  tau);
-      end;
-    end;
-
-  PROCEDURE updateTargets_wave;
-    VAR i:longint;
-        r:double;
-    begin
-      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        //targetPosition[0]:=(i and 31)*0.0967741935483871-1.5;
-        //targetPosition[2]:=(i shr  5)*0.0967741935483871-1.5;
-        //r:=sqrt(sqr(targetPosition[0])+sqr(targetPosition[1]));
-        r:=sqrt(i/1023)*2;
-        targetPosition[0]:=sin(i*FIBFAK)*r;
-        targetPosition[2]:=cos(i*FIBFAK)*r;
-        targetPosition[1]:=-0.5+0.2*sin(3*r-modeTicks*3E-3);
-      end;
-    end;
-
-  PROCEDURE updateTargets_grid;
-    VAR i:longint;
-        k:array[0..2] of longint;
-        tgtCol:TVector3;
-    begin
-      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        k[0]:=round(p[0]*5);
-        k[1]:=round(p[1]*5);
-        k[2]:=round(p[2]*5);
-        tgtCol:=(commonTargetColor+spherePoints[(i*31) and 1023]*0.1);;
-        if k[lissajousParam[0] mod 3]=0
-        then color+=(WHITE-tgtCol-color)*(0.1*dt)
-        else color+=(      tgtCol-color)*(0.1*dt);
-
-        targetPosition[0]:=k[0]*0.2;
-        targetPosition[1]:=k[1]*0.2;
-        targetPosition[2]:=k[2]*0.2;
       end;
     end;
 
@@ -587,13 +476,13 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks:longint; CONST dt:double
     fixBrokenPositions;
     case attractionMode of
       //Cyclic attraction
-      0: begin updateTargets_cyclic;        moveTowardsTargets(-120,5);                                         updateColors_rainbow; end;
-      1: begin updateTargets_cube;          moveTowardsTargets(-100,1,round(length(Particle)*modeTicks/10000)); updateColors_commmonTarget; end;
-      2: begin updateTargets_sphere;        moveTowardsTargets(-100,1,round(length(Particle)*modeTicks/10000)); updateColors_commmonTarget; end;
-      3: begin updateTargets_heart;         moveTowardsTargets(-120,5);                                         updateColors_reds;       end;
-      4: begin updateTargets_wave;          moveTowardsTargets(-120,5);                                         updateColors_byVerticalVelocity;   end;
+      0: begin updateTargets_cyclic(modeTicks/20000);        moveTowardsTargets(-120,5);                                         updateColors_rainbow; end;
+      1: begin updateTargets_cube(modeTicks/20000);          moveTowardsTargets(-100,1,round(length(Particle)*modeTicks/10000)); updateColors_commmonTarget; end;
+      2: begin updateTargets_sphere(modeTicks/20000);        moveTowardsTargets(-100,1,round(length(Particle)*modeTicks/10000)); updateColors_commmonTarget; end;
+      3: begin updateTargets_heart(modeTicks/20000);         moveTowardsTargets(-120,5);                                         updateColors_reds;       end;
+      4: begin updateTargets_wave(modeTicks/20000);          moveTowardsTargets(-120,5);                                         updateColors_byVerticalVelocity;   end;
       5: begin special_swirl;              updateColors_byRadius;  end;
-      6: begin updateTargets_grid;          moveTowardsTargets(-0.01*modeTicks,10);  end;
+      6: begin updateTargets_grid(modeTicks/20000);          moveTowardsTargets(-0.01*modeTicks,10);  end;
       7: begin
            for i:=0 to length(Particle)-1 do with Particle[i] do begin
              fallAndBounce(i);
@@ -628,12 +517,136 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks:longint; CONST dt:double
              end;
            end;
          end;
-     15: begin updateTargets_icosahedron;   moveTowardsTargets(-200,6,round(length(Particle)*modeTicks/10000)); updateColors_byVerticalVelocity; end;
-     16: begin updateTargets_groupedCyclic; moveTowardsTargets(-120,5);  updateColors_commmonTarget; end;
+     15: begin updateTargets_icosahedron(modeTicks/20000);   moveTowardsTargets(-200,6,round(length(Particle)*modeTicks/10000)); updateColors_byVerticalVelocity; end;
+     16: begin updateTargets_groupedCyclic(modeTicks/20000); moveTowardsTargets(-120,5);  updateColors_commmonTarget; end;
      17: begin special_lorenzAttractor;                                                              end;
      18: begin updateTargets_bicyclic;      moveTowardsTargets(-100, 5); updateColors_byVerticalVelocity;                             end;
      19: begin updateTargets_byDistance;    moveTowardsTargets(-10, 1); updateColors_byRadius;                            end;
      20: begin updateTargets_clock; moveTowardsTargets(-200, 5); end;
+    end;
+  end;
+
+PROCEDURE TParticleEngine.updateTargets_cyclic(CONST progress: double);
+  VAR i,k:longint;
+      r:double;
+  begin
+    for i:=0 to length(Particle)-1 do begin
+     k:=(i+1) mod length(Particle);
+     Particle[i].targetPosition:=Particle[k].p+Particle[k].v;
+     r:=euklideanNorm(Particle[i].targetPosition);
+     if      r<0.5 then Particle[i].targetPosition*=0.5/r
+     else if r>2   then Particle[i].targetPosition*=2  /r;
+   end;
+ end;
+
+PROCEDURE TParticleEngine.updateTargets_groupedCyclic(CONST progress: double);
+  VAR i,k:longint;
+  begin
+    // mt=progress*20000
+    // mt shr 8 = mt / 256 = round(progress*100)
+//
+    for i:=0 to length(Particle)-1 do begin
+     k:=((i+(i shr 5)+round(progress*100)) and 31) or (i and not(31));
+     with Particle[i] do begin
+       targetPosition:=Particle[k].p+Particle[k].v;
+       targetPosition*=1/euklideanNorm(targetPosition);
+     end;
+   end;
+ end;
+
+PROCEDURE TParticleEngine.updateTargets_cube(CONST progress: double);
+  CONST C_cubeNodes:array[0..7] of TVector3=((-1,-1,-1),(-1,-1,1),(1,-1,-1),(1,-1,1),(-1,1,-1),(-1,1,1),(1,1,-1),(1,1,1));
+        C_cubeTrip1:array[0..7] of longint=(0,1,3,2,6,7,5,4);
+        C_cubeTrip2:array[0..7] of longint=(0,2,6,4,5,7,3,1);
+        C_cubeTrip3:array[0..7] of longint=(0,4,5,1,3,7,6,2);
+  VAR i,k:longint;
+      tau:double;
+  begin
+    for i:=0 to length(Particle)-1 do with Particle[i] do begin
+     tau:=i/length(Particle)*8+progress*0.5;
+     k:=trunc(tau);
+     tau:=frac(tau);
+     case i mod 3 of
+       0: targetPosition:=C_cubeNodes[C_cubeTrip1[ k    and 7]]*(1-tau)
+                         +C_cubeNodes[C_cubeTrip1[(k+1) and 7]]*   tau;
+       1: targetPosition:=C_cubeNodes[C_cubeTrip2[ k    and 7]]*(1-tau)
+                         +C_cubeNodes[C_cubeTrip2[(k+1) and 7]]*   tau;
+     else targetPosition:=C_cubeNodes[C_cubeTrip3[ k    and 7]]*(1-tau)
+                         +C_cubeNodes[C_cubeTrip3[(k+1) and 7]]*   tau;
+     end;
+   end;
+  end;
+
+PROCEDURE TParticleEngine.updateTargets_heart(CONST progress: double);
+  VAR i,k:longint;
+      tau:double;
+  begin
+    for i:=0 to length(Particle)-1 do with Particle[i] do begin
+      tau:=(i/length(Particle)+progress)*2*pi;
+      k:=i and 3;
+      targetPosition[2]:=sin(k*progress*pi)*(1-0.1*k)*(0.75  *sin(tau)-0.25  *sin(3*tau));
+      targetPosition[0]:=cos(k*progress*pi)*(1-0.1*k)*(0.75  *sin(tau)-0.25  *sin(3*tau));
+      targetPosition[1]:=(1-0.1*k)*(0.8125*cos(tau)-0.3125*cos(2*tau)-0.125*cos(3*tau)-0.0625*cos(4*tau));
+    end;
+  end;
+
+PROCEDURE TParticleEngine.updateTargets_sphere(CONST progress: double);
+  VAR i:longint;
+  begin
+    for i:=0 to length(Particle)-1 do with Particle[i] do
+    targetPosition:=spherePoints[i]*progress;
+  end;
+
+PROCEDURE TParticleEngine.updateTargets_icosahedron(CONST progress: double);
+  CONST C_IcosahedronEdges:array[0..29,0..1] of byte=
+    ((0,1),(1,2),(2,6),(6,9),(9,10),(10,11),(11,5),(5,6),(6,11),(11,7),(7,10),(10,4),(4,7),(7,3),(3,4),(4,8),(8,9),(9,11),
+     (3,5),(5,1),(1,3),(3,0),(0,2),(2,8),(8,0),(0,4),
+     (8,10),
+     (5,7),
+     (2,9),
+     (1,6));
+
+  VAR i,k:longint;
+      tau:double;
+  begin
+    for i:=0 to length(Particle)-1 do with Particle[i] do begin
+      tau:=(i/length(Particle))*length(C_IcosahedronEdges);
+      k:=trunc(tau);
+      tau:=frac(tau);
+      k:=k mod length(C_IcosahedronEdges);
+      targetPosition:=C_IcosahedronNodes[C_IcosahedronEdges[k,0]]*(1-tau)+
+                      C_IcosahedronNodes[C_IcosahedronEdges[k,1]]*(  tau);
+    end;
+  end;
+
+PROCEDURE TParticleEngine.updateTargets_wave(CONST progress: double);
+  VAR i:longint;
+      r:double;
+  begin
+    for i:=0 to length(Particle)-1 do with Particle[i] do begin
+      r:=sqrt(i/1023)*2;
+      targetPosition[0]:=sin(i*FIBFAK)*r;
+      targetPosition[2]:=cos(i*FIBFAK)*r;
+      targetPosition[1]:=-0.5+0.2*sin(3*r-progress*20);
+    end;
+  end;
+
+PROCEDURE TParticleEngine.updateTargets_grid(CONST progress: double);
+  VAR i:longint;
+      k:array[0..2] of longint;
+      tgtCol:TVector3;
+  begin
+    for i:=0 to length(Particle)-1 do with Particle[i] do begin
+      k[0]:=round(p[0]*5);
+      k[1]:=round(p[1]*5);
+      k[2]:=round(p[2]*5);
+      tgtCol:=(commonTargetColor+spherePoints[(i*31) and 1023]*0.1);
+      if k[lissajousParam[0] mod 3]=0
+      then color:=WHITE-tgtCol;
+
+      targetPosition[0]:=k[0]*0.2;
+      targetPosition[1]:=k[1]*0.2;
+      targetPosition[2]:=k[2]*0.2;
     end;
   end;
 
