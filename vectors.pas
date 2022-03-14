@@ -14,6 +14,8 @@ OPERATOR +(CONST x,y:TVector3):TVector3;
 OPERATOR -(CONST x,y:TVector3):TVector3;
 FUNCTION euklideanNorm(CONST x:TVector3):double;
 FUNCTION hsvColor(h,s,v:single):TVector3;
+
+CONST ZERO_VECTOR:TVector3=(0,0,0);
 IMPLEMENTATION
 USES math;
 FUNCTION vectorOf(CONST x,y,z:single):TVector3;
