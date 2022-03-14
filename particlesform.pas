@@ -29,7 +29,7 @@ INTERFACE
 
 USES
   Classes, sysutils, LazFileUtils, LazUTF8, LCLProc, Forms, LResources,
-  Dialogs, Graphics, GL, FPimage, OpenGLContext,Controls,math,particlePhysics,vectors;
+  Dialogs, Graphics, gl, FPimage, OpenGLContext,Controls,math,particlePhysics,vectors;
 
 TYPE
   TExampleForm = class(TForm)
@@ -57,7 +57,6 @@ TYPE
     PROCEDURE OpenGLControl1MouseUp(Sender: TObject; button: TMouseButton; Shift: TShiftState; X, Y: integer);
   end;
 
-
 VAR AnExampleForm: TExampleForm;
 CONST TARGET_FPS=40;
 
@@ -70,7 +69,6 @@ VAR rx: single=0;
     sleepTimeMilliseconds:longint=0;
 VAR timer: single;
     LastMsecs: integer;
-
 
 CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
   begin
@@ -160,8 +158,6 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
 // --------------------------------------------------------------------------
 //                              Particle Engine
 // --------------------------------------------------------------------------
-
-
 
 // ---------------------------------------------------------------------------
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -312,7 +308,7 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       glPushMatrix;
 
       if not(mouseIsDown) then begin
-        if ParticleEngine.attractionMode=CLOCK_TARGET
+        if ParticleEngine.currentAttractionMode=CLOCK_TARGET
         then ry-=ry*0.001*timer
         else ry+=   0.01 *timer;
         rx-=rx*0.001*timer;

@@ -1,8 +1,8 @@
-unit vectors;
+UNIT vectors;
 
 {$mode objfpc}{$H+}
 
-interface
+INTERFACE
 USES gl;
 TYPE
   TVector3=array[0..2] of GLfloat;
@@ -14,7 +14,7 @@ OPERATOR +(CONST x,y:TVector3):TVector3;
 OPERATOR -(CONST x,y:TVector3):TVector3;
 FUNCTION euklideanNorm(CONST x:TVector3):double;
 FUNCTION hsvColor(h,s,v:single):TVector3;
-implementation
+IMPLEMENTATION
 USES math;
 FUNCTION vectorOf(CONST x,y,z:single):TVector3;
   begin
