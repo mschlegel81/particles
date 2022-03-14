@@ -20,6 +20,7 @@ TYPE
     //Pseudo constants
     spherePoints: array [0..1023] of TVector3;
     //State
+    lastModeTicks:longint;
     attractionMode:byte;
     commonTargetColor:TVector3;
     lissajousParam:array[0..2] of byte;
@@ -47,17 +48,21 @@ TYPE
     PROCEDURE updateColors_clock(CONST dt:double);
     PROCEDURE updateA_sliver(CONST progress: double);
     PROCEDURE updateA_byDistance(CONST progress: double);
+    PROCEDURE lorenzAttractor(CONST dt:double);
+
+    PROCEDURE switchAttractionMode;
+    PROCEDURE MoveParticles(CONST modeTicks:longint);
   public
     CONSTRUCTOR create;
     DESTRUCTOR destroy; override;
-    PROCEDURE switchAttractionMode;
-    PROCEDURE MoveParticles(CONST modeTicks:longint; CONST dt:double);
+    FUNCTION update(VAR modeTicks:longint):single;
     PROCEDURE DrawParticles(CONST ParticleList: GLuint);
     PROPERTY currentAttractionMode:byte read attractionMode;
   end;
 
 CONST
   CLOCK_TARGET=20;
+  MODE_SWITCH_INTERVAL_IN_TICKS=20000;
   C_IcosahedronNodes:array[0..11] of TVector3=(
   ( 0, 8.50650808352040E-001, 5.25731112119134E-001),
   ( 5.25731112119134E-001, 0, 8.50650808352040E-001),
@@ -79,8 +84,7 @@ CONST
   ATTRACTION_MODE_COUNT=21;
   FIBFAK=2*pi/sqr((sqrt(5)-1)/2);
 
-PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint;
-  CONST dt: double);
+PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
 
   PROCEDURE fixBrokenPositions;
     FUNCTION anyInvalid(CONST v:TVector3):boolean; inline;
@@ -98,34 +102,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint;
       end;
     end;
 
-  PROCEDURE special_lorenzAttractor;
-    FUNCTION dL(CONST x:TVector3):TVector3;
-      CONST spatial_scaling=20;
-            speed_scaling=0.02;
-            yAxisShift=1;
-      begin
-        result[0]:=speed_scaling*(10*(x[2]-x[0])                                       );
-        result[2]:=speed_scaling*(28* x[0]-x[2]-x[0]*(x[1]+yAxisShift) *spatial_scaling);
-        result[1]:=speed_scaling*(    x[0]*x[2]*spatial_scaling-8/3*(x[1]+yAxisShift)  );
-      end;
-
-    VAR i:longint;
-        dx0,dx1,dx2,dx3:TVector3;
-
-    begin
-      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        dx0:=dL(p        )*5*dt;
-        dx1:=dL(p+dx0*0.5)*5*dt;
-        dx2:=dL(p+dx1*0.5)*5*dt;
-        dx3:=dL(p+dx2    )*5*dt;
-        v:=dx0*(1/6)+dx1*(1/3)+dx2*(1/3)+dx3*(1/6);
-        p+=v;
-        v*=1/dt;
-        if p[0]<0 then color+=(      commonTargetColor-color)*(0.4*dt)
-                  else color+=(WHITE-commonTargetColor-color)*(0.4*dt);
-      end;
-    end;
-
+  VAR dt:double;
   PROCEDURE fallAndBounce(CONST i:longint);
     CONST BLUE  :TVector3=(0,0,1);
     VAR acc:TVector3;
@@ -151,10 +128,6 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint;
     end;
 
   PROCEDURE moveTowardsTargets(CONST updateA:FUpdateAcceleration; CONST iMax_:longint=1023);
-    //
-    //FUNCTION dampn(CONST v:TVector3):TVector3;
-    //  begin result:=v*(euklideanNorm(v)*dampingFactor); end;
-
     VAR i,imax:longint;
         aMax:double=0;
         tmp,dtSub:double;
@@ -164,20 +137,20 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint;
       then imax:=length(Particle)-1
       else imax:=iMax_;
 
-      updateA(modeTicks/20000);
+      updateA(lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS);
       for i:=0 to imax do with Particle[i] do begin
         tmp:=sqr(a[0])+sqr(a[1])+sqr(a[2]);
         if (tmp>aMax) and not(isInfinite(tmp)) and not(isNan(tmp)) then aMax:=tmp;
       end;
       aMax:=sqrt(aMax);
-      subSteps:=trunc(aMax*dt*100);
-      if subSteps<=0 then subSteps:=1 else if subSteps>1000 then subSteps:=1000;
+      subSteps:=trunc(aMax*dt*20);
+      if subSteps<=0 then subSteps:=1 else if subSteps>100 then subSteps:=100;
       dtSub:=dt/subSteps;
 
       DebugLn('substeps: '+intToStr(subSteps));
 
       for k:=1 to subSteps do begin
-        if k>1 then updateA(modeTicks/20000+dtSub*(k-1)*0.05);
+        if k>1 then updateA(lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS+dtSub*(k-1)*0.05);
         for i:=0 to imax do with Particle[i] do begin
           v+=a*dtSub;
           p+=v*dtSub;
@@ -235,11 +208,12 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint;
   VAR i: integer;
   begin
     fixBrokenPositions;
-    //attractionMode:=20;
+    dt:=(modeTicks-lastModeTicks)*1E-3;
+    //attractionMode:=10;
     case attractionMode of
       0: begin moveTowardsTargets(@updateA_cyclic);                                         updateColors_rainbow;            end;
-      1: begin moveTowardsTargets(@updateA_cube  ,round(length(Particle)*modeTicks/10000)); updateColors_commmonTarget;      end;
-      2: begin moveTowardsTargets(@updateA_sphere,round(length(Particle)*modeTicks/10000)); updateColors_commmonTarget;      end;
+      1: begin moveTowardsTargets(@updateA_cube  ,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_commmonTarget;      end;
+      2: begin moveTowardsTargets(@updateA_sphere,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_commmonTarget;      end;
       3: begin moveTowardsTargets(@updateA_heart);                                          updateColors_reds;               end;
       4: begin moveTowardsTargets(@updateA_wave);                                           updateColors_byVerticalVelocity; end;
       5: begin moveTowardsTargets(@updateA_swirl);                                          updateColors_byRadius;           end;
@@ -259,9 +233,9 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint;
          end;
       8: begin moveTowardsTargets(@updateA_lissajous);      updateColors_rainbow;  end;
       9: begin moveTowardsTargets(@updateA_clusters); updateCol_clusters(dt);  end;
-     10: begin moveTowardsTargets(@updateA_vogler); updateCol_vogler(modeTicks/20000, dt);  end;
+     10: begin moveTowardsTargets(@updateA_vogler); updateCol_vogler(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS, dt);  end;
      11: begin moveTowardsTargets(@updateA_CIRCL);  updateColors_rainbow;           end;
-     12: begin moveTowardsTargets(@updateA_sliver,round(length(Particle)*modeTicks/10000)); updateColors_byRadius; end;
+     12: begin moveTowardsTargets(@updateA_sliver,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_byRadius; end;
      13: begin moveTowardsTargets(@updateA_sheet); updateColors_sheet(dt); end;
      14: begin
            for i:=0 to length(Particle)-1 do with Particle[i] do begin
@@ -276,13 +250,14 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint;
              end;
            end;
          end;
-     15: begin moveTowardsTargets(@updateA_icosahedron,round(length(Particle)*modeTicks/10000));  updateColors_byVerticalVelocity; end;
+     15: begin moveTowardsTargets(@updateA_icosahedron,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));  updateColors_byVerticalVelocity; end;
      16: begin moveTowardsTargets(@updateA_groupedCyclic);  updateColors_commmonTarget; end;
-     17: special_lorenzAttractor;
+     17: lorenzAttractor(dt);
      18: begin moveTowardsTargets(@updateA_bicyclic); updateColors_byVerticalVelocity; end;
      19: begin moveTowardsTargets(@updateA_byDistance); updateColors_byRadius;                            end;
      20: begin moveTowardsTargets(@updateA_clock); updateColors_clock(dt);                            end;
     end;
+    lastModeTicks:=modeTicks;
   end;
 
 FUNCTION accel(CONST v,p,target:TVector3; CONST springConstant,dampingFctor:double):TVector3;
@@ -325,35 +300,36 @@ PROCEDURE TParticleEngine.updateA_cube(CONST progress: double);
   VAR i,k:longint;
       tau:double;
       targetPosition:TVector3;
+      subCube:byte;
   begin
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
-      tau:=i/length(Particle)*8+progress*2;
+      subCube:=trunc(i/length(Particle)*3);
+      tau:=i/length(Particle)*24+progress*2;
       k:=trunc(tau);
       tau:=frac(tau);
-      case i mod 3 of
-        0: targetPosition:=C_cubeNodes[C_cubeTrip1[ k    and 7]]*(1-tau)
-                          +C_cubeNodes[C_cubeTrip1[(k+1) and 7]]*   tau;
+      case subCube of
+        0: targetPosition:=(C_cubeNodes[C_cubeTrip1[ k    and 7]]*(1-tau)
+                           +C_cubeNodes[C_cubeTrip1[(k+1) and 7]]*   tau)*0.8;
         1: targetPosition:=(C_cubeNodes[C_cubeTrip2[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip2[(k+1) and 7]]*   tau)*0.98;
+                           +C_cubeNodes[C_cubeTrip2[(k+1) and 7]]*   tau)*0.9;
       else targetPosition:=(C_cubeNodes[C_cubeTrip3[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip3[(k+1) and 7]]*   tau)*0.96;
+                           +C_cubeNodes[C_cubeTrip3[(k+1) and 7]]*   tau);
       end;
-      a:=accel(v,p,targetPosition,10,-10);
+      a:=accel(v,p,targetPosition,20,-20);
     end;
   end;
 
 PROCEDURE TParticleEngine.updateA_heart(CONST progress: double);
   VAR i,k:longint;
       tau:double;
-      targetPosition:TVector3;
+      tp:TVector3;
   begin
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
       tau:=(i/length(Particle)+progress)*2*pi;
-      k:=i and 3;
-      targetPosition[2]:=sin(k*progress*pi)*(1-0.1*k)*(0.75  *sin(tau)-0.25  *sin(3*tau));
-      targetPosition[0]:=cos(k*progress*pi)*(1-0.1*k)*(0.75  *sin(tau)-0.25  *sin(3*tau));
-      targetPosition[1]:=(1-0.1*k)*(0.8125*cos(tau)-0.3125*cos(2*tau)-0.125*cos(3*tau)-0.0625*cos(4*tau));
-      a:=accel(v,p,targetPosition,10,-20);
+      tp [2]:= (0.75  *sin(tau)-0.25  *sin(3*tau));
+      tp [1]:= (0.8125*cos(tau)-0.3125*  cos(2*tau)-0.125*  cos(3*tau)-0.0625*  cos(4*tau));
+      tp [0]:=0;
+      a:=accel(v,p,tp*(1-0.001*((i*4057) and 31)),50,-20)
     end;
   end;
 
@@ -368,17 +344,22 @@ PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double);
   FUNCTION accel(CONST v,p:TVector3; CONST x0:double):TVector3;
     VAR f:double;
     begin
-      f:=exp(-4*sqr(p[2]));
-      result[0]:=-p[0]+f*p[1];
-      result[1]:=-p[1]-f*p[0];
-      result[2]:=0.1*(x0-p[2]);
-      result-=v*(euklideanNorm(v));
+      f:=2*p[2];
+      result[0]:=-2*p[0]+f*p[1];
+      result[1]:=-2*p[1]-f*p[0];
+      result[2]:=0.2*(-p[2]);
+      result-=v*(euklideanNorm(v));//*(0.1+exp(-4*sqr(p[2])));
     end;
 
   VAR i:longint;
   begin
-    for i:=0 to length(Particle)-1 do with Particle[i] do
-      a:=accel(v,p,0.5-i/length(Particle));
+    for i:=0 to length(Particle)-1 do with Particle[i] do begin
+      a:=accel(v,p,0);
+      if euklideanNorm(p)<0.05 then begin
+        v[2]:=5-10*random;
+        color:=WHITE;
+      end;
+    end;
   end;
 
 PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double);
@@ -445,13 +426,13 @@ PROCEDURE TParticleEngine.updateA_lissajous(CONST progress: double);
       t,tau:double;
       targetPosition:TVector3;
   begin
-     t:=progress/5;
+     t:=sqr(progress);
      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-       tau:=(i/length(Particle)+t)*2*pi;
+       tau:=(i/length(Particle)-t)*2*pi;
        targetPosition[0]:=sin(     lissajousParam[0]*tau);
        targetPosition[1]:=sin(pi/6+lissajousParam[1]*tau);
        targetPosition[2]:=sin(pi/3+lissajousParam[2]*tau);
-       a:=accel(v,p,targetPosition,20,-1);
+       a:=accel(v,p,targetPosition,20,-2);
      end;
   end;
 
@@ -645,6 +626,40 @@ PROCEDURE TParticleEngine.updateA_byDistance(CONST progress: double);
     end;
   end;
 
+PROCEDURE TParticleEngine.lorenzAttractor(CONST dt: double);
+  FUNCTION dL(CONST x:TVector3):TVector3;
+    CONST spatial_scaling=20;
+          speed_scaling=0.02;
+          yAxisShift=1;
+    begin
+      result[0]:=speed_scaling*(10*(x[2]-x[0])                                       );
+      result[2]:=speed_scaling*(28* x[0]-x[2]-x[0]*(x[1]+yAxisShift) *spatial_scaling);
+      result[1]:=speed_scaling*(    x[0]*x[2]*spatial_scaling-8/3*(x[1]+yAxisShift)  );
+    end;
+  CONST maxTimeStep=0.01;
+
+  VAR i,k,subSteps:longint;
+      dtSub:double;
+      dx0,dx1,dx2,dx3:TVector3;
+  begin
+    subSteps:=ceil(dt/maxTimeStep);
+    if subSteps<=0 then subSteps:=0;
+    dtSub:=dt/subSteps;
+    for k:=1 to subSteps do begin
+      for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        dx0:=dL(p        )*5*dtSub;
+        dx1:=dL(p+dx0*0.5)*5*dtSub;
+        dx2:=dL(p+dx1*0.5)*5*dtSub;
+        dx3:=dL(p+dx2    )*5*dtSub;
+        v:=dx0*(1/6)+dx1*(1/3)+dx2*(1/3)+dx3*(1/6);
+        p+=v;
+        v*=1/dtSub;
+        if p[0]<0 then color+=(      commonTargetColor-color)*(0.4*dtSub)
+                  else color+=(WHITE-commonTargetColor-color)*(0.4*dtSub);
+      end;
+    end;
+  end;
+
 PROCEDURE TParticleEngine.updateA_clock(CONST progress: double);
   CONST BAR_POS:array[0..6,0..1] of TVector3=
            (((-0.2 , 0.5 ,0),( 0.2 , 0.5 ,0)),
@@ -677,7 +692,7 @@ PROCEDURE TParticleEngine.updateA_clock(CONST progress: double);
     end;
   end;
 
-PROCEDURE TParticleEngine.updateColors_clock(CONST dt:double);
+PROCEDURE TParticleEngine.updateColors_clock(CONST dt: double);
   CONST
     BAR_ACTIVE:array['0'..'9',0..6] of boolean=((true,true,true,false,true,true,true),
                                                 (false,false,true,false,false,true,false),
@@ -742,11 +757,24 @@ CONSTRUCTOR TParticleEngine.create;
 
     attractionMode:=ATTRACTION_MODE_COUNT;
     switchAttractionMode;
+    lastModeTicks:=0;
   end;
 
 DESTRUCTOR TParticleEngine.destroy;
   begin
     inherited destroy;
+  end;
+
+FUNCTION TParticleEngine.update(VAR modeTicks: longint): single;
+  begin
+    result:=(modeTicks-lastModeTicks)*1E-3; //approximate dt in seconds
+    MoveParticles(modeTicks);
+    if modeTicks>MODE_SWITCH_INTERVAL_IN_TICKS then begin
+      switchAttractionMode;
+      modeTicks-=MODE_SWITCH_INTERVAL_IN_TICKS;
+      lastModeTicks:=modeTicks;
+    end;
+
   end;
 
 PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint);
@@ -771,9 +799,9 @@ PROCEDURE TParticleEngine.switchAttractionMode;
   begin
     repeat m:=random(ATTRACTION_MODE_COUNT) until m<>attractionMode;
 
-    lissajousParam[0]:=1+random(12);
-    lissajousParam[1]:=1+random(12);
-    lissajousParam[2]:=1+random(12);
+    lissajousParam[0]:=1+random(16);
+    lissajousParam[1]:=1+random(16);
+    lissajousParam[2]:=1+random(16);
 
     repeat commonTargetColor:=vectorOf(random,random,random); until commonTargetColor[0]+commonTargetColor[1]+commonTargetColor[2]>1;
 

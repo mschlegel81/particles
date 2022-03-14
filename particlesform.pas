@@ -58,7 +58,7 @@ TYPE
   end;
 
 VAR AnExampleForm: TExampleForm;
-CONST TARGET_FPS=40;
+CONST TARGET_FPS=50;
 
 IMPLEMENTATION
 
@@ -67,8 +67,6 @@ VAR rx: single=0;
     ParticleEngine: TParticleEngine;
     ParticleList: GLuint;
     sleepTimeMilliseconds:longint=0;
-VAR timer: single;
-    LastMsecs: integer;
 
 CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
   begin
@@ -136,13 +134,14 @@ PROCEDURE TExampleForm.OpenGLControl1MouseUp(Sender: TObject; button: TMouseButt
   end;
 
 PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
-  VAR
-    upperLeftOnScreen: TPoint;
+  VAR upperLeftOnScreen: TPoint;
   begin
     if not(biSystemMenu in BorderIcons) then begin
       SetBounds((screen.width-800) div 2,(screen.height-600) div 2,800,600);
       BorderIcons:=[biSystemMenu,biMaximize];
       FormStyle:=fsNormal;
+      //BorderStyle:=bsSizeable;
+      //WindowState:=wsNormal;
     end else begin
       BorderIcons:=[];
       upperLeftOnScreen:=ClientToScreen(point(0,0));
@@ -151,13 +150,10 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
       width:=screen.width;
       height:=screen.height;
       FormStyle:=fsStayOnTop;
-
+      //BorderStyle:=bsNone;
+      //WindowState:=wsMaximized;
     end;
   end;
-
-// --------------------------------------------------------------------------
-//                              Particle Engine
-// --------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -165,6 +161,7 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
 
 PROCEDURE TExampleForm.IdleFunc(Sender: TObject; VAR done: boolean);
 begin
+  if not(Assigned(OpenGLControl1)) then exit;
   OpenGLControl1.Invalidate;
   sleep(sleepTimeMilliseconds);
   done:=false; // tell lcl to handle messages and return immediatly
@@ -254,11 +251,9 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
     end;
 
   CONST az=1;
-  VAR
-    CurTime: TDateTime;
-    MSecs: integer;
-    ax:double=az;
-    ay:double=az;
+  VAR ax:double=az;
+      ay:double=az;
+      timer:single;
   begin
     inc(frameCount);
     inc(modeTicks     ,OpenGLControl1.FrameDiffTimeInMSecs);
@@ -268,16 +263,9 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       if      frameCount>TARGET_FPS*1.5 then inc(sleepTimeMilliseconds)
       else if frameCount<TARGET_FPS     then dec(sleepTimeMilliseconds);
       if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
-
       DebugLn(['TExampleForm.OpenGLControl1Paint Frames per second: ',frameCount,' sleeping for: ',sleepTimeMilliseconds,'ms']);
-
       caption:='Particles ('+intToStr(frameCount)+'fps, '+intToStr(sleepTimeMilliseconds)+'ms sleep)';
-
       frameCount:=0;
-    end;
-    if (modeTicks>20000) then begin
-      ParticleEngine.switchAttractionMode;
-      dec(modeTicks,20000);
     end;
 
     if OpenGLControl1.MakeCurrent then
@@ -294,14 +282,7 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
         AreaInitialized:=true;
       end;
 
-      CurTime:=now;
-      MSecs:=round(CurTime*86400*1000) mod 1000;
-      if MSecs<0 then MSecs:=1000+MSecs;
-      timer:=MSecs-LastMsecs;
-      if timer<0 then timer:=1000+timer;
-      LastMsecs:=MSecs;
-
-      ParticleEngine.MoveParticles(modeTicks,timer*1E-3);
+      timer:=ParticleEngine.update(modeTicks);
 
       glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);
       glLoadIdentity;             { clear the matrix }
@@ -309,22 +290,14 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
 
       if not(mouseIsDown) then begin
         if ParticleEngine.currentAttractionMode=CLOCK_TARGET
-        then ry-=ry*0.001*timer
-        else ry+=   0.01 *timer;
-        rx-=rx*0.001*timer;
+        then ry-=ry*timer
+        else ry+=10*timer;
+        rx-=rx*timer;
 
         if ry> 180 then ry-=360;
         if ry<-180 then ry+=360;
         if rx> 180 then rx-=360;
         if rx<-180 then rx+=360;
-
-        //if rx>0 then begin
-        //  rx-=0.02*timer;
-        //  if rx<0 then rx:=0;
-        //end else if rx>0 then begin
-        //  rx+=0.02*timer;
-        //  if rx>0 then rx:=0;
-        //end;
       end;
 
       if OpenGLControl1.width>OpenGLControl1.height
