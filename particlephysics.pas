@@ -56,11 +56,13 @@ TYPE
     CONSTRUCTOR create;
     DESTRUCTOR destroy; override;
     FUNCTION update(VAR modeTicks:longint):single;
+    PROCEDURE nextSetup(VAR modeTicks:longint);
     PROCEDURE DrawParticles(CONST ParticleList: GLuint);
     PROPERTY currentAttractionMode:byte read attractionMode;
   end;
 
 CONST
+  GRID_TARGET=6;
   CLOCK_TARGET=20;
   MODE_SWITCH_INTERVAL_IN_TICKS=20000;
   C_IcosahedronNodes:array[0..11] of TVector3=(
@@ -344,22 +346,28 @@ PROCEDURE TParticleEngine.updateA_sphere(CONST progress: double);
   end;
 
 PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double);
-  FUNCTION accel(CONST v,p:TVector3; CONST x0:double):TVector3;
+  FUNCTION accel(CONST v,p:TVector3):TVector3;
     VAR f:double;
     begin
-      f:=2*p[2];
-      result[0]:=-2*p[0]+f*p[1];
-      result[1]:=-2*p[1]-f*p[0];
-      result[2]:=0.2*(-p[2]);
-      result-=v*(euklideanNorm(v));//*(0.1+exp(-4*sqr(p[2])));
+      f:=exp(-8*sqr(p[2]));
+      result:=p*(-1);
+      result[0]+=(1-f)*p[1];
+      result[1]-=(1-f)*p[0];
+      result-=v*(f*2*euklideanNorm(v));//*2*(exp(-8*sqr(p[2]))));
     end;
-
+  CONST r0=0.1;
   VAR i:longint;
+      angle:double;
   begin
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
-      a:=accel(v,p,0);
-      if euklideanNorm(p)<0.05 then begin
+      a:=accel(v,p);
+      if euklideanNorm(p)<r0 then begin
         v[2]:=5-10*random;
+        angle:=random*2*pi;
+        v[1]:=v[2]*0.1*sin(angle);
+        v[0]:=v[2]*0.1*cos(angle);
+
+        p:=v*(r0/euklideanNorm(v));
         color:=WHITE;
       end;
     end;
@@ -404,23 +412,43 @@ PROCEDURE TParticleEngine.updateA_wave(CONST progress: double);
   end;
 
 PROCEDURE TParticleEngine.updateA_grid(CONST progress: double);
-  VAR i:longint;
-      k:array[0..2] of longint;
+  VAR occupied:array[0..1023] of TIntVec3;
+      i:longint;
+  FUNCTION isOccupied(CONST k:TIntVec3):boolean;
+    VAR j:longint;
+    begin
+      result:=false;
+      for j:=0 to i-1 do if occupied[j]=k then exit(true);
+    end;
+
+  VAR k:TIntVec3;
       tgtCol:TVector3;
-      targetPosition:TVector3;
+      x,y,di:longint;
   begin
+    di:=trunc(progress*8);
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
-      k[0]:=round(p[0]*5);
-      k[1]:=round(p[1]*5);
-      k[2]:=round(p[2]*5);
+      k:=roundVector(p*5);
+      if (di<6) and isOccupied(k) then begin
+        case byte((i+di) mod 6) of
+          0: begin x:=0; y:=1; end;
+          1: begin x:=0; y:=2; end;
+          2: begin x:=1; y:=0; end;
+          3: begin x:=1; y:=2; end;
+          4: begin x:=2; y:=0; end;
+          5: begin x:=2; y:=1; end;
+        end;
+        if      (k[y]>0) and (k[x]> -k[y]) and (k[x]< k[y]) then k[x]+=1
+        else if (k[y]<0) and (k[x]<=-k[y]) and (k[x]> k[y]) then k[x]-=1
+        else if (k[x]>0) then k[y]-=1
+        else                  k[y]+=1;
+      end;
+
+      occupied[i]:=k;
       tgtCol:=(commonTargetColor+spherePoints[(i*31) and 1023]*0.1);
       if k[lissajousParam[0] mod 3]=0
       then color:=WHITE-tgtCol;
 
-      targetPosition[0]:=k[0]*0.2;
-      targetPosition[1]:=k[1]*0.2;
-      targetPosition[2]:=k[2]*0.2;
-      a:=accel(v,p,targetPosition,20,-100*progress);
+      a:=accel(v,p,k*0.2,20,-100*progress);
     end;
   end;
 
@@ -571,17 +599,16 @@ PROCEDURE TParticleEngine.updateA_sheet(CONST progress: double);
     end;
   end;
 
-PROCEDURE TParticleEngine.updateColors_sheet(CONST progress,dt: double);
+PROCEDURE TParticleEngine.updateColors_sheet(CONST progress, dt: double);
   VAR targetColor:TVector3;
       ix,iy:longint;
       pk,k:longint;
   begin
-    pk:=trunc(progress*100) and 7;
+    pk:=trunc(progress*200) and 15;
     for ix:=0 to 31 do
     for iy:=0 to 31 do with Particle[ix shl 5 or iy] do begin
-      k:=min(min(ix,31-ix),
-             min(iy,31-iy));
-      if (k and 7)=pk
+      k:=(44-2*round(sqrt(sqr(ix-15.5)+sqr(iy-15.5)))) and 15;
+      if k=pk
       then color:=WHITE-commonTargetColor
       else begin
         targetColor:=commonTargetColor;
@@ -810,6 +837,13 @@ FUNCTION TParticleEngine.update(VAR modeTicks: longint): single;
 
   end;
 
+PROCEDURE TParticleEngine.nextSetup(VAR modeTicks: longint);
+  begin
+    modeTicks:=0;
+    lastModeTicks:=0;
+    switchAttractionMode;
+  end;
+
 PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint);
   VAR i: integer;
   begin
@@ -855,6 +889,7 @@ PROCEDURE TParticleEngine.switchAttractionMode;
       Particle[k]:=tmp;
     end;
 
+//    if attractionMode<>GRID_TARGET then attractionMode:=GRID_TARGET else
     attractionMode:=m;
   end;
 

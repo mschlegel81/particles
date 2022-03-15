@@ -50,7 +50,7 @@ TYPE
     modeTicks     : integer;
 
     mouseX,mouseY : longint;
-    mouseIsDown   : boolean;
+    mouseIsDown   : byte;
     PROCEDURE initOpenGlControl;
     PROCEDURE OpenGLControl1MouseDown(Sender: TObject; button: TMouseButton; Shift: TShiftState; X, Y: integer);
     PROCEDURE OpenGLControl1MouseMove(Sender: TObject; Shift: TShiftState; X,Y: integer);
@@ -104,7 +104,7 @@ PROCEDURE TExampleForm.initOpenGlControl;
       OnMouseUp  :=@OpenGLControl1MouseUp;
       mouseX :=0;
       mouseY :=0;
-      mouseIsDown:=false;
+      mouseIsDown:=0;
     end;
     OpenGLControl1.SetBounds(0, 0, width, height);
   end;
@@ -113,12 +113,15 @@ PROCEDURE TExampleForm.OpenGLControl1MouseDown(Sender: TObject; button: TMouseBu
   begin
     mouseX:=x;
     mouseY:=y;
-    mouseIsDown:=true;
+    case button of
+      mbLeft : mouseIsDown:=1;
+      mbRight: mouseIsDown:=2;
+    end;
   end;
 
 PROCEDURE TExampleForm.OpenGLControl1MouseMove(Sender: TObject; Shift: TShiftState; X, Y: integer);
   begin
-    if not(mouseIsDown) then exit;
+    if mouseIsDown<>1 then exit;
     ry+=(x-mouseX)/width*180;
     rx+=(y-mouseY)/height*180;
     mouseX:=x;
@@ -127,7 +130,8 @@ PROCEDURE TExampleForm.OpenGLControl1MouseMove(Sender: TObject; Shift: TShiftSta
 
 PROCEDURE TExampleForm.OpenGLControl1MouseUp(Sender: TObject; button: TMouseButton; Shift: TShiftState; X, Y: integer);
   begin
-    mouseIsDown:=false;
+    if mouseIsDown=2 then ParticleEngine.nextSetup(modeTicks);
+    mouseIsDown:=0;
   end;
 
 PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
@@ -283,7 +287,7 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       glLoadIdentity;             { clear the matrix }
       glPushMatrix;
 
-      if not(mouseIsDown) then begin
+      if (mouseIsDown<>1) then begin
         if ParticleEngine.currentAttractionMode=CLOCK_TARGET
         then ry-=ry*timer
         else ry+=10*timer;

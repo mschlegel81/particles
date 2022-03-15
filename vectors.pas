@@ -6,14 +6,21 @@ INTERFACE
 USES GL;
 TYPE
   TVector3=array[0..2] of GLfloat;
+  TIntVec3=array[0..2] of longint;
 
 FUNCTION vectorOf(CONST x,y,z:single):TVector3;
 FUNCTION randomOnSphere:TVector3;
 OPERATOR * (CONST x:TVector3; CONST y:double):TVector3;
 OPERATOR +(CONST x,y:TVector3):TVector3;
 OPERATOR -(CONST x,y:TVector3):TVector3;
+OPERATOR -(CONST x,y:TIntVec3):TIntVec3;
 FUNCTION euklideanNorm(CONST x:TVector3):double;
+FUNCTION euklideanNorm(CONST x:TIntVec3):double;
 FUNCTION hsvColor(h,s,v:single):TVector3;
+
+FUNCTION roundVector(CONST v:TVector3):TIntVec3;
+OPERATOR *(CONST x:TIntVec3; CONST y:double):TVector3;
+OPERATOR =(CONST x,y:TIntVec3):boolean;
 
 CONST ZERO_VECTOR:TVector3=(0,0,0);
 IMPLEMENTATION
@@ -58,7 +65,19 @@ OPERATOR -(CONST x,y:TVector3):TVector3;
     result[2]:=x[2]-y[2];
   end;
 
+OPERATOR -(CONST x,y:TIntVec3):TIntVec3;
+  begin
+    result[0]:=x[0]-y[0];
+    result[1]:=x[1]-y[1];
+    result[2]:=x[2]-y[2];
+  end;
+
 FUNCTION euklideanNorm(CONST x:TVector3):double;
+  begin
+    result:=sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]);
+  end;
+
+FUNCTION euklideanNorm(CONST x:TIntVec3):double;
   begin
     result:=sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]);
   end;
@@ -90,6 +109,25 @@ FUNCTION hsvColor(h,s,v:single):TVector3;
       5  : result:=vectorOf(v,p,q);
       else result:=vectorOf(v,t,p);
     end;
+  end;
+
+FUNCTION roundVector(CONST v: TVector3): TIntVec3;
+  begin
+    result[0]:=round(v[0]);
+    result[1]:=round(v[1]);
+    result[2]:=round(v[2]);
+  end;
+
+OPERATOR*(CONST x: TIntVec3; CONST y: double): TVector3;
+  begin
+    result[0]:=x[0]*y;
+    result[1]:=x[1]*y;
+    result[2]:=x[2]*y;
+  end;
+
+OPERATOR=(CONST x, y: TIntVec3): boolean;
+  begin
+    result:=(x[0]=y[0]) and (x[1]=y[1]) and (x[2]=y[2]);
   end;
 
 FUNCTION extractHsvChannels(CONST x:TVector3):TVector3;
