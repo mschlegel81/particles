@@ -4,3 +4,4 @@
 *.exe
 *.compiled
 *.obj
+/particles.lps

@@ -29,7 +29,7 @@ INTERFACE
 
 USES
   Classes, sysutils, LazFileUtils, LazUTF8, LCLProc, Forms, LResources,
-  Dialogs, Graphics, gl, FPimage, OpenGLContext,Controls,math,particlePhysics,vectors;
+  Dialogs, Graphics, GL, FPimage, OpenGLContext,Controls,math,particlePhysics,vectors;
 
 TYPE
   TExampleForm = class(TForm)

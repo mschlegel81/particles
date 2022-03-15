@@ -3,7 +3,7 @@ UNIT particlePhysics;
 {$mode objfpc}{$H+}
 
 INTERFACE
-USES vectors,gl;
+USES vectors,GL;
 
 TYPE
   FUpdateAcceleration=PROCEDURE(CONST progress:double) of object;
@@ -42,7 +42,7 @@ TYPE
     PROCEDURE updateA_clusters(CONST progress:double);
     PROCEDURE updateCol_clusters(CONST dt:double);
     PROCEDURE updateA_sheet(CONST progress:double);
-    PROCEDURE updateColors_sheet(CONST dt:double);
+    PROCEDURE updateColors_sheet(CONST progress,dt:double);
     PROCEDURE updateA_bicyclic(CONST progress:double);
     PROCEDURE updateA_clock(CONST progress:double);
     PROCEDURE updateColors_clock(CONST dt:double);
@@ -209,7 +209,6 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
   begin
     fixBrokenPositions;
     dt:=(modeTicks-lastModeTicks)*1E-3;
-    //attractionMode:=10;
     case attractionMode of
       0: begin moveTowardsTargets(@updateA_cyclic);                                         updateColors_rainbow;            end;
       1: begin moveTowardsTargets(@updateA_cube  ,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_commmonTarget;      end;
@@ -236,7 +235,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
      10: begin moveTowardsTargets(@updateA_vogler); updateCol_vogler(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS, dt);  end;
      11: begin moveTowardsTargets(@updateA_CIRCL);  updateColors_rainbow;           end;
      12: begin moveTowardsTargets(@updateA_sliver,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_byRadius; end;
-     13: begin moveTowardsTargets(@updateA_sheet); updateColors_sheet(dt); end;
+     13: begin moveTowardsTargets(@updateA_sheet); updateColors_sheet(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS,dt); end;
      14: begin
            for i:=0 to length(Particle)-1 do with Particle[i] do begin
              fallAndBounce(i);
@@ -250,12 +249,12 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
              end;
            end;
          end;
-     15: begin moveTowardsTargets(@updateA_icosahedron,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));  updateColors_byVerticalVelocity; end;
+     15: begin moveTowardsTargets(@updateA_icosahedron,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));  updateColors_byRadius; end;
      16: begin moveTowardsTargets(@updateA_groupedCyclic);  updateColors_commmonTarget; end;
      17: lorenzAttractor(dt);
      18: begin moveTowardsTargets(@updateA_bicyclic); updateColors_byVerticalVelocity; end;
-     19: begin moveTowardsTargets(@updateA_byDistance); updateColors_byRadius;                            end;
-     20: begin moveTowardsTargets(@updateA_clock); updateColors_clock(dt);                            end;
+     19: begin moveTowardsTargets(@updateA_byDistance); updateColors_byRadius; end;
+     20: begin moveTowardsTargets(@updateA_clock); updateColors_clock(dt); end;
     end;
     lastModeTicks:=modeTicks;
   end;
@@ -320,9 +319,9 @@ PROCEDURE TParticleEngine.updateA_cube(CONST progress: double);
   end;
 
 PROCEDURE TParticleEngine.updateA_heart(CONST progress: double);
-  VAR i,k:longint;
+  VAR i  :longint;
       tau:double;
-      tp:TVector3;
+      tp :TVector3;
   begin
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
       tau:=(i/length(Particle)+progress)*2*pi;
@@ -382,7 +381,7 @@ PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double);
       k:=k mod length(C_IcosahedronEdges);
       targetPosition:=C_IcosahedronNodes[C_IcosahedronEdges[k,0]]*(1-tau)+
                       C_IcosahedronNodes[C_IcosahedronEdges[k,1]]*(  tau);
-      a:=accel(v,p,targetPosition,10,-10);
+      a:=accel(v,p,targetPosition,50,-10);
     end;
   end;
 
@@ -439,18 +438,32 @@ PROCEDURE TParticleEngine.updateA_lissajous(CONST progress: double);
 PROCEDURE TParticleEngine.updateA_vogler(CONST progress: double);
   VAR i,k:longint;
       targetPosition:TVector3;
+
+      refY:double;
+      downcurve:double;
+      radius:double;
   begin
     k:=trunc(progress*20);
+    downcurve:=0.4*k/20;
+    radius   :=1/30*k/20;
+
     k:=((k div 2)*21+13*(k and 1));
+    refY:=k*0.01-1;
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
       if i-k>0 then begin
-        targetPosition[0]:=sin((i-k)*FIBFAK)*sqrt((i-k)/1023);
-        targetPosition[1]:=cos((i-k)*FIBFAK)*sqrt((i-k)/1023);
-        targetPosition[2]:=0.2-0.4*sqr((i-k)/1023);
+        targetPosition[0]:=sin((i-k)*FIBFAK)*sqrt((i-k))*radius;
+        targetPosition[2]:=cos((i-k)*FIBFAK)*sqrt((i-k))*radius;
+        targetPosition[1]:=refY-downcurve*sqr((i-k)/1023);
       end else begin
         targetPosition[0]:=0;
-        targetPosition[1]:=0;
-        targetPosition[2]:=0.2+(i-k)*0.01;
+        targetPosition[2]:=0;
+        if odd(i)
+        then targetPosition[1]:=refY+(i-k)*0.01
+        else begin
+          targetPosition[1]:=sin(1+refY+(i-k)*0.01)-1;
+          targetPosition[2]:=cos(1+refY+(i-k)*0.01)-1;
+
+        end;
       end;
       a:=accel(v,p,targetPosition,10,-10);
     end;
@@ -469,7 +482,7 @@ PROCEDURE TParticleEngine.updateCol_vogler(CONST progress, dt: double);
         if i-k>100 then color+=(WHITE-color)*(0.1*dt)
                    else color+=(ORANGE-color)*(0.2*dt);
       end else
-        color+=(GREEN-color)*(dt);
+       color+=(GREEN-color)*(dt);
     end;
   end;
 
@@ -544,32 +557,40 @@ PROCEDURE TParticleEngine.updateA_sheet(CONST progress: double);
     for ix:=0 to 31 do
     for iy:=0 to 31 do with Particle[ix shl 5 or iy] do begin
       targetPosition:=ZERO_VECTOR; n:=0;
-      if ix> 0 then begin targetPosition+=Particle[((ix+31) and 31) shl 5 or iy].p; n+=1; end;
-      if ix<31 then begin targetPosition+=Particle[((ix+ 1) and 31) shl 5 or iy].p; n+=1; end;
-      if iy> 0 then begin targetPosition+=Particle[ix shl 5 or ((iy+31) and 31)].p; n+=1; end;
-      if iy<31 then begin targetPosition+=Particle[ix shl 5 or ((iy+ 1) and 31)].p; n+=1; end;
+      if ix> 0 then begin targetPosition+=Particle[(ix-1) shl 5 or iy].p; n+=1; end;
+      if ix<31 then begin targetPosition+=Particle[(ix+1) shl 5 or iy].p; n+=1; end;
+      if iy> 0 then begin targetPosition+=Particle[ix shl 5 or (iy-1)].p; n+=1; end;
+      if iy<31 then begin targetPosition+=Particle[ix shl 5 or (iy+1)].p; n+=1; end;
       targetPosition:=targetPosition*(1/n)-allPointsCenter;
-      targetPosition*=1/euklideanNorm(targetPosition);
-      a:=accel(v,p,targetPosition,20,-4);
+      a:=accel(v,p,targetPosition,40,-2);
+      if n<4 then a+=p*(1/(sqr(p[0])+sqr(p[1])+sqr(p[2])));
     end;
   end;
 
-PROCEDURE TParticleEngine.updateColors_sheet(CONST dt: double);
+PROCEDURE TParticleEngine.updateColors_sheet(CONST progress,dt: double);
   VAR targetColor:TVector3;
       ix,iy:longint;
+      pk,k:longint;
   begin
+    pk:=trunc(progress*100) and 7;
     for ix:=0 to 31 do
     for iy:=0 to 31 do with Particle[ix shl 5 or iy] do begin
-      targetColor:=commonTargetColor+spherePoints[((ix shl 5 or iy)*31) and 1023]*0.1;
-      if ((ix and 3)=0) or  ((iy and 3)=0) then targetColor:=WHITE-targetColor;
-      color+=(targetColor-color)*(0.1*dt);
+      k:=min(min(ix,31-ix),
+             min(iy,31-iy));
+      if (k and 7)=pk
+      then color:=WHITE-commonTargetColor
+      else begin
+        targetColor:=commonTargetColor;
+        color+=(targetColor-color)*(2*dt);
+      end;
     end;
   end;
 
 PROCEDURE TParticleEngine.updateA_bicyclic(CONST progress: double);
   VAR ix,iy,k:longint;
       allPointsCenter, targetPosition:TVector3;
-      r:double;
+      tgt1,tgt2:TVector3;
+      r1,r2:double;
   begin
     allPointsCenter:=ZERO_VECTOR;
     for k:=0 to length(Particle)-1 do allPointsCenter+=Particle[k].p;
@@ -577,15 +598,27 @@ PROCEDURE TParticleEngine.updateA_bicyclic(CONST progress: double);
 
     for ix:=0 to 31 do
     for iy:=0 to 31 do with Particle[ix shl 5 or iy] do begin
-      targetPosition:=(Particle[((ix+ 1) and 31) shl 5 or iy].p+
-                       Particle[ix shl 5 or ((iy+ 1) and 31)].p)*0.5-allPointsCenter;
-      r:=euklideanNorm(targetPosition);
-      if      r>2-progress then targetPosition*=(2-progress)/r
-      else if r<  progress then targetPosition*=   progress /r;
-      a:=targetPosition-p;
-      r:=euklideanNorm(a);
-      a:=a*(2/r)-v*2;
+      k:=((ix+ 1) and 31) shl 5 or iy;
+      tgt1:=Particle[k].p+Particle[k].v-allPointsCenter;
+      r1:=euklideanNorm(tgt1-p);
+      k:=ix shl 5 or ((iy+ 1) and 31);
+      tgt2:=Particle[k].p+Particle[k].v-allPointsCenter;
+      r2:=euklideanNorm(tgt2-p);
+
+      if r1>r2 then targetPosition:=tgt1 else targetPosition:=tgt2;
+      a:=accel(v,p,targetPosition,5,-5)-p*0.01;
     end;
+    //for ix:=0 to 31 do
+    //for iy:=0 to 31 do with Particle[ix shl 5 or iy] do begin
+    //  targetPosition:=(Particle[((ix+ 1) and 31) shl 5 or iy].p+
+    //                   Particle[ix shl 5 or ((iy+ 1) and 31)].p)*0.5-allPointsCenter;
+    //  r:=euklideanNorm(targetPosition);
+    //  if      r>2-progress then targetPosition*=(2-progress)/r
+    //  else if r<  progress then targetPosition*=   progress /r;
+    //  a:=targetPosition-p;
+    //  r:=euklideanNorm(a);
+    //  a:=a*(2/r)-v*2;
+    //end;
   end;
 
 PROCEDURE TParticleEngine.updateA_sliver(CONST progress: double);
@@ -613,16 +646,22 @@ PROCEDURE TParticleEngine.updateA_sliver(CONST progress: double);
 
 PROCEDURE TParticleEngine.updateA_byDistance(CONST progress: double);
   VAR i,k:longint;
-      d:TVector3;
+      d,dMin:TVector3;
+      r     :double;
+      rMin  :double=100;
   begin
-    with Particle[0] do begin
-      a:=accel(v,p,ZERO_VECTOR,5,-3);
-    end;
-    for i:=1 to 1023 do with Particle[i] do begin
-      k:=(i-1) shr 1;
-      d:=p-Particle[k].p;
-      d*=0.4/euklideanNorm(d);
-      a:=accel(v,p,Particle[k].p+d,5,-3);
+    with Particle[0] do a:=accel(v,p,ZERO_VECTOR,5,-3);
+    for i:=1 to length(Particle)-1 do with Particle[i] do begin
+      for k:=0 to i-1 do begin
+        d:=Particle[k].p-p;
+        r:=d[0]*d[0]+d[1]*d[1]+d[2]*d[2];
+        if (k=0) or (r<rMin) then begin
+          rMin:=r;
+          dMin:=d;
+        end;
+      end;
+      rMin:=sqrt(rMin);
+      a:=accel(v,p,p+dMin*(0.1/rMin),5,-3);
     end;
   end;
 
@@ -688,7 +727,7 @@ PROCEDURE TParticleEngine.updateA_clock(CONST progress: double);
         targetPosition[0]+=0.01*sin(q+progress);
         targetPosition[1]+=0.01*cos(q+progress);
       end;
-      a:=accel(v,p,targetPosition,5,-20);
+      a:=accel(v,p,targetPosition,50,-20);
     end;
   end;
 

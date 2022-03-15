@@ -3,7 +3,7 @@ UNIT vectors;
 {$mode objfpc}{$H+}
 
 INTERFACE
-USES gl;
+USES GL;
 TYPE
   TVector3=array[0..2] of GLfloat;
 
