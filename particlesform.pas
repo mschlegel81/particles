@@ -70,13 +70,13 @@ VAR rx: single=0;
 
 CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
   begin
-    randomize;
     inherited CreateNew(TheOwner);
+    randomize;
     if LazarusResources.find(ClassName)=nil then begin
       SetBounds((screen.width-800) div 2,(screen.height-600) div 2,800,600);
       caption:='Particles...';
       Application.OnIdle:=@IdleFunc;
-      OnResize:=@FormResize;
+      OnResize          :=@FormResize;
       FormResize(self);
       ParticleEngine:=TParticleEngine.create;
       initOpenGlControl;
@@ -96,18 +96,15 @@ PROCEDURE TExampleForm.initOpenGlControl;
     with OpenGLControl1 do begin
       name:='OpenGLControl1';
       parent:=self;
-      OnPaint:=@OpenGLControl1Paint;
-      OnResize:=@OpenGLControl1Resize;
-      OnDblClick:=@OpenGlControl1DblClick;
-
+      OnPaint    :=@OpenGLControl1Paint;
+      OnResize   :=@OpenGLControl1Resize;
+      OnDblClick :=@OpenGlControl1DblClick;
+      OnMouseDown:=@OpenGLControl1MouseDown;
+      OnMouseMove:=@OpenGLControl1MouseMove;
+      OnMouseUp  :=@OpenGLControl1MouseUp;
       mouseX :=0;
       mouseY :=0;
       mouseIsDown:=false;
-
-      OnMouseDown:=@OpenGLControl1MouseDown;
-      OnMouseMove:=@OpenGLControl1MouseMove;
-      OnMouseUp:=@OpenGLControl1MouseUp;
-
     end;
     OpenGLControl1.SetBounds(0, 0, width, height);
   end;
@@ -135,23 +132,24 @@ PROCEDURE TExampleForm.OpenGLControl1MouseUp(Sender: TObject; button: TMouseButt
 
 PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
   VAR upperLeftOnScreen: TPoint;
+      heightDelta:longint;
   begin
     if not(biSystemMenu in BorderIcons) then begin
       SetBounds((screen.width-800) div 2,(screen.height-600) div 2,800,600);
       BorderIcons:=[biSystemMenu,biMaximize];
       FormStyle:=fsNormal;
       //BorderStyle:=bsSizeable;
-      //WindowState:=wsNormal;
+      WindowState:=wsNormal;
     end else begin
       BorderIcons:=[];
-      upperLeftOnScreen:=ClientToScreen(point(0,0));
-      Left:=Left-upperLeftOnScreen.X;
-      top :=top -upperLeftOnScreen.Y;
-      width:=screen.width;
-      height:=screen.height;
       FormStyle:=fsStayOnTop;
+      //!Switching BorderStyle breaks OpenGlControl!
       //BorderStyle:=bsNone;
-      //WindowState:=wsMaximized;
+      WindowState:=wsMaximized;
+      upperLeftOnScreen:=ClientToScreen(point(0,0));
+      heightDelta:=upperLeftOnScreen.Y-top;
+      top :=top-heightDelta;
+      height:=height+heightDelta;
     end;
   end;
 
@@ -160,18 +158,18 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
 // ---------------------------------------------------------------------------
 
 PROCEDURE TExampleForm.IdleFunc(Sender: TObject; VAR done: boolean);
-begin
-  if not(Assigned(OpenGLControl1)) then exit;
-  OpenGLControl1.Invalidate;
-  sleep(sleepTimeMilliseconds);
-  done:=false; // tell lcl to handle messages and return immediatly
-end;
+  begin
+    if not(Assigned(OpenGLControl1)) then exit;
+    OpenGLControl1.Invalidate;
+    sleep(sleepTimeMilliseconds);
+    done:=false; // tell lcl to handle messages and return immediatly
+  end;
 
 PROCEDURE TExampleForm.FormResize(Sender: TObject);
-begin
-  if OpenGLControl1<>nil then
-    OpenGLControl1.SetBounds(0, 0, width, height);
-end;
+  begin
+    if OpenGLControl1<>nil then
+      OpenGLControl1.SetBounds(0, 0, width, height);
+  end;
 
 VAR lightamb, lightdif, lightpos: array [0..3] of GLfloat;
 PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
@@ -192,9 +190,9 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
 
       {setting lighting conditions}
       {ambient color}
-      lightamb[0]:=0.5;
-      lightamb[1]:=0.5;
-      lightamb[2]:=0.5;
+      lightamb[0]:=0.2;
+      lightamb[1]:=0.2;
+      lightamb[2]:=0.2;
       lightamb[3]:=1.0;
       {diffuse color}
       lightdif[0]:=0.5;
@@ -207,8 +205,8 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       lightpos[2]:=0.0;
       lightpos[3]:=0.0;
 
-      glLightfv(GL_LIGHT0,GL_AMBIENT,lightamb);
-      glLightfv(GL_LIGHT1,GL_DIFFUSE,lightdif);
+      glLightfv(GL_LIGHT0,GL_AMBIENT ,lightamb);
+      glLightfv(GL_LIGHT1,GL_DIFFUSE ,lightdif);
       glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
 
       glEnable(GL_LIGHT0);
@@ -221,15 +219,12 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       glShadeModel(GL_SMOOTH);          // enables smooth color shading
       glColor4f(0.7,0.7,0.7,1.0);
       glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
       glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
       glHint(GL_PERSPECTIVE_CORRECTION_HINT,GL_NICEST);
-     // glEnable( GL_POINT_SMOOTH );
       glEnable( GL_BLEND );
       glEnable(GL_COLOR_MATERIAL);
       glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
       glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
-      //glPointSize( 6.0 );
 
       ParticleList:=glGenLists(1);
 
@@ -241,7 +236,7 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
               n:=C_IcosahedronNodes[C_icosahedronFaces[i,j]];
               n*=1/euklideanNorm(n);
               glNormal3f(n[0],n[1],n[2]);
-              n*=0.01;
+              n*=0.013;
               glVertex3f(n[0],n[1],n[2]);
             end;
           end;
