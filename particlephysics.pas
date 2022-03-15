@@ -279,15 +279,19 @@ PROCEDURE TParticleEngine.updateA_cyclic(CONST progress: double);
 
 PROCEDURE TParticleEngine.updateA_groupedCyclic(CONST progress: double);
   VAR i,k:longint;
-      targetPosition:TVector3;
+      targetPosition, allPointsCenter:TVector3;
   begin
+    allPointsCenter:=ZERO_VECTOR;
+    for k:=0 to length(Particle)-1 do allPointsCenter+=Particle[k].p;
+    allPointsCenter*=1/length(Particle);
+
     for i:=0 to length(Particle)-1 do begin
-     k:=((i+(i shr 5)+round(progress*100)) and 31) or (i and not(31));
-     with Particle[i] do begin
-       targetPosition:=Particle[k].p;
-       targetPosition*=1/euklideanNorm(targetPosition);
-       a:=accel(v,p,targetPosition,100,-10);
-     end;
+      k:=((i+(i shr 5)+round(progress*100)) and 31) or (i and not(31));
+      with Particle[i] do begin
+        targetPosition:=Particle[k].p-allPointsCenter;
+        targetPosition*=1/euklideanNorm(targetPosition);
+        a:=accel(v,p,targetPosition,100,-10);
+      end;
    end;
  end;
 
@@ -460,8 +464,8 @@ PROCEDURE TParticleEngine.updateA_vogler(CONST progress: double);
         if odd(i)
         then targetPosition[1]:=refY+(i-k)*0.01
         else begin
-          targetPosition[1]:=sin(1+refY+(i-k)*0.01)-1;
-          targetPosition[2]:=cos(1+refY+(i-k)*0.01)-1;
+          targetPosition[1]:=sin((1+refY+(i-k)*0.01)*0.5)-1+k*0.003;
+          targetPosition[2]:=cos((1+refY+(i-k)*0.01)*0.5)-1;
 
         end;
       end;
@@ -608,23 +612,13 @@ PROCEDURE TParticleEngine.updateA_bicyclic(CONST progress: double);
       if r1>r2 then targetPosition:=tgt1 else targetPosition:=tgt2;
       a:=accel(v,p,targetPosition,5,-5)-p*0.01;
     end;
-    //for ix:=0 to 31 do
-    //for iy:=0 to 31 do with Particle[ix shl 5 or iy] do begin
-    //  targetPosition:=(Particle[((ix+ 1) and 31) shl 5 or iy].p+
-    //                   Particle[ix shl 5 or ((iy+ 1) and 31)].p)*0.5-allPointsCenter;
-    //  r:=euklideanNorm(targetPosition);
-    //  if      r>2-progress then targetPosition*=(2-progress)/r
-    //  else if r<  progress then targetPosition*=   progress /r;
-    //  a:=targetPosition-p;
-    //  r:=euklideanNorm(a);
-    //  a:=a*(2/r)-v*2;
-    //end;
   end;
 
 PROCEDURE TParticleEngine.updateA_sliver(CONST progress: double);
   VAR i:longint;
       tgt:TVector3=(0,0.5,0);
   begin
+    tgt[1]:=-1+1.5*progress;
 
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
       if i/length(Particle)<progress*2
@@ -640,7 +634,7 @@ PROCEDURE TParticleEngine.updateA_sliver(CONST progress: double);
         color:=WHITE;
       end;
       tgt:=tgt*0.99+p*0.01;
-      a-=v*0.5;
+      a-=v*0.8;
     end;
   end;
 
