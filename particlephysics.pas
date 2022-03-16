@@ -70,6 +70,7 @@ TYPE
 CONST
   GRID_TARGET=6;
   CLOCK_TARGET=20;
+  PYRAMID_TARGET=25;
   MODE_SWITCH_INTERVAL_IN_TICKS=20000;
   C_IcosahedronNodes:array[0..11] of TVector3=(
   ( 0, 8.50650808352040E-001, 5.25731112119134E-001),
@@ -130,7 +131,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         end;
         if (v[1]<0) and (p[1]+v[1]*dt<=-1) then begin
           hitTime:=(-1-p[1])/v[1];
-          v[1]:=0.9*abs(v[1]);
+          v[1]:=0.8*abs(v[1]);
           p[1]:=-1+v[1]*(dt-hitTime);
           color:=color*0.7+BLUE*0.3;
           result:=true;
@@ -286,7 +287,10 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
 
         if max(abs(p[2]),abs(p[0]))<1 then begin
           p[1]+=max(abs(p[2]),abs(p[0]))-1;
-          if fallAndBounce(i) then color+=WHITE-commonTargetColor;
+          if fallAndBounce(i) then begin
+            color+=WHITE-commonTargetColor;
+            v*=0.5;
+          end;
           p[1]-=max(abs(p[2]),abs(p[0]))-1;
         end else fallAndBounce(i);
 
@@ -396,7 +400,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         moveTowardsTargets(@updateA_cyclicMirror);
         updateColors_byRadius;
       end;
-      25: fallingPyramid;
+      PYRAMID_TARGET: fallingPyramid;
     end;
     lastModeTicks:=modeTicks;
   end;
@@ -883,6 +887,7 @@ PROCEDURE TParticleEngine.lorenzAttractor(CONST dt: double);
       result[0]:=speed_scaling*(10*(x[2]-x[0])                                       );
       result[2]:=speed_scaling*(28* x[0]-x[2]-x[0]*(x[1]+yAxisShift) *spatial_scaling);
       result[1]:=speed_scaling*(    x[0]*x[2]*spatial_scaling-8/3*(x[1]+yAxisShift)  );
+      result*=10;
     end;
   CONST maxTimeStep=0.01;
 
@@ -895,10 +900,10 @@ PROCEDURE TParticleEngine.lorenzAttractor(CONST dt: double);
     dtSub:=dt/subSteps;
     for k:=1 to subSteps do begin
       for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        dx0:=dL(p        )*5*dtSub;
-        dx1:=dL(p+dx0*0.5)*5*dtSub;
-        dx2:=dL(p+dx1*0.5)*5*dtSub;
-        dx3:=dL(p+dx2    )*5*dtSub;
+        dx0:=dL(p        )*dtSub;
+        dx1:=dL(p+dx0*0.5)*dtSub;
+        dx2:=dL(p+dx1*0.5)*dtSub;
+        dx3:=dL(p+dx2    )*dtSub;
         v:=dx0*(1/6)+dx1*(1/3)+dx2*(1/3)+dx3*(1/6);
         p+=v;
         v*=1/dtSub;
@@ -1106,6 +1111,21 @@ PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint);
   end;
 
 PROCEDURE TParticleEngine.switchAttractionMode;
+  PROCEDURE prepareForPyramid;
+    VAR i:longint;
+    begin
+      for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        if (abs(p[0])<1) and (abs(p[2])<1) then begin
+          if abs(p[0])>abs(p[2])
+          then p[0]:=0.1*round(10*p[0])
+          else p[2]:=0.1*round(10*p[2]);
+          if p[1]<max(abs(p[2]),abs(p[0]))-1 then p[1]:=2;
+        end;
+        v[0]:=0;
+        v[2]:=0;
+      end;
+    end;
+
   CONST primes:array[0..2] of byte=(2,3,5);
   VAR m,p:byte;
 
@@ -1138,9 +1158,9 @@ PROCEDURE TParticleEngine.switchAttractionMode;
       Particle[k]:=tmp;
     end;
 
-    //if attractionMode<>22 then attractionMode:=22 else
     attractionMode:=m;
     if attractionMode=GRID_TARGET then calculateGridPositions;
+    if attractionMode=PYRAMID_TARGET then prepareForPyramid;
   end;
 
 end.
