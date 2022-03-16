@@ -225,51 +225,101 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
     fixBrokenPositions;
     dt:=(modeTicks-lastModeTicks)*1E-3;
     case attractionMode of
-      0: begin moveTowardsTargets(@updateA_cyclic);                                         updateColors_rainbow;            end;
-      1: begin moveTowardsTargets(@updateA_cube  ,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_commmonTarget;      end;
-      2: begin moveTowardsTargets(@updateA_sphere,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_commmonTarget;      end;
-      3: begin moveTowardsTargets(@updateA_heart);                                          updateColors_reds;               end;
-      4: begin moveTowardsTargets(@updateA_wave);                                           updateColors_byVerticalVelocity; end;
-      5: begin moveTowardsTargets(@updateA_swirl);                                          updateColors_byRadius;           end;
-      6: begin moveTowardsTargets(@updateA_grid);                                           updateColors_grid;      end;
-      7: begin
-           for i:=0 to length(Particle)-1 do with Particle[i] do begin
-             fallAndBounce(i);
-             if (p[1]<=-0.99) and (abs(v[1])<1E-2) then begin
-               p[0]:=random+random+random+random+random+random-3;
-               p[2]:=random+random+random+random+random+random-3;
-               p[1]:=2;
-               color:=commonTargetColor+(WHITE-commonTargetColor)*random;
-               v:=ZERO_VECTOR;
-               v[1]:=0.5-random;
-             end;
-           end;
-         end;
-      8: begin moveTowardsTargets(@updateA_lissajous);      updateColors_rainbow;  end;
-      9: begin moveTowardsTargets(@updateA_clusters); updateCol_clusters(dt);  end;
-     10: begin moveTowardsTargets(@updateA_vogler); updateCol_vogler(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS, dt);  end;
-     11: begin moveTowardsTargets(@updateA_CIRCL);  updateColors_rainbow;           end;
-     12: begin moveTowardsTargets(@updateA_sliver,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2)); updateColors_byRadius; end;
-     13: begin moveTowardsTargets(@updateA_sheet); updateColors_sheet(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS,dt); end;
-     14: begin
-           for i:=0 to length(Particle)-1 do with Particle[i] do begin
-             fallAndBounce(i);
-             if (sqr(p[0])+sqr(p[1]+1)+sqr(p[2])<1E-2) then begin
-               v[1]+=5;
-               v+=randomOnSphere*0.2;
-               color:=commonTargetColor+(WHITE-commonTargetColor)*random;
-             end else if p[1]<=-0.99 then begin
-                v[0]-=dt*p[0];
-                v[2]-=dt*p[2];
-             end;
-           end;
-         end;
-     15: begin moveTowardsTargets(@updateA_icosahedron,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));  updateColors_byRadius; end;
-     16: begin moveTowardsTargets(@updateA_groupedCyclic);  updateColors_commmonTarget; end;
-     17: lorenzAttractor(dt);
-     18: begin moveTowardsTargets(@updateA_bicyclic); updateColors_byVerticalVelocity; end;
-     19: begin moveTowardsTargets(@updateA_byDistance); updateColors_byRadius; end;
-     20: begin moveTowardsTargets(@updateA_clock); updateColors_clock(dt); end;
+      0: begin
+        moveTowardsTargets(@updateA_cyclic);
+        updateColors_rainbow;
+      end;
+      1: begin
+        moveTowardsTargets(@updateA_cube,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));
+        updateColors_commmonTarget;
+      end;
+      2: begin
+        moveTowardsTargets(@updateA_sphere,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));
+        updateColors_commmonTarget;
+      end;
+      3: begin
+        moveTowardsTargets(@updateA_heart);
+        updateColors_reds;
+      end;
+      4: begin
+        moveTowardsTargets(@updateA_wave);
+        updateColors_byVerticalVelocity;
+      end;
+      5: begin
+        moveTowardsTargets(@updateA_swirl);
+        updateColors_byRadius;
+      end;
+      GRID_TARGET: begin
+        moveTowardsTargets(@updateA_grid);
+        updateColors_grid;
+      end;
+      7: for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        fallAndBounce(i);
+        if (p[1]<=-0.99) and (abs(v[1])<1E-2) then begin
+          p[0]:=random+random+random+random+random+random-3;
+          p[2]:=random+random+random+random+random+random-3;
+          p[1]:=2;
+          color:=commonTargetColor+(WHITE-commonTargetColor)*random;
+          v:=ZERO_VECTOR;
+          v[1]:=0.5-random;
+        end;
+      end;
+      8: begin
+        moveTowardsTargets(@updateA_lissajous);
+        updateColors_rainbow;
+      end;
+      9: begin
+        moveTowardsTargets(@updateA_clusters);
+        updateCol_clusters(dt);
+      end;
+      10: begin
+        moveTowardsTargets(@updateA_vogler);
+        updateCol_vogler(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS, dt);
+      end;
+      11: begin
+        moveTowardsTargets(@updateA_CIRCL);
+        updateColors_rainbow;
+      end;
+      12: begin
+        moveTowardsTargets(@updateA_sliver,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));
+        updateColors_byRadius;
+      end;
+      13: begin
+        moveTowardsTargets(@updateA_sheet);
+        updateColors_sheet(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS,dt);
+      end;
+      14: for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        fallAndBounce(i);
+        if (sqr(p[0])+sqr(p[1]+1)+sqr(p[2])<1E-2) then begin
+          v[1]+=5;
+          v+=randomOnSphere*0.2;
+          color:=commonTargetColor+(WHITE-commonTargetColor)*random;
+        end else if p[1]<=-0.99 then begin
+           v[0]-=dt*p[0];
+           v[2]-=dt*p[2];
+        end;
+      end;
+      15: begin
+        moveTowardsTargets(@updateA_icosahedron,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));
+        updateColors_byRadius;
+      end;
+      16: begin
+        moveTowardsTargets(@updateA_groupedCyclic);
+        updateColors_commmonTarget;
+      end;
+      17: lorenzAttractor(dt);
+      18: begin
+        moveTowardsTargets(@updateA_bicyclic);
+        updateColors_byVerticalVelocity;
+      end;
+      19: begin
+        moveTowardsTargets(@updateA_byDistance);
+        updateColors_byRadius;
+      end;
+      CLOCK_TARGET: begin
+        moveTowardsTargets(@updateA_clock);
+        updateColors_clock(dt);
+      end;
     end;
     lastModeTicks:=modeTicks;
   end;
@@ -561,16 +611,16 @@ PROCEDURE TParticleEngine.updateA_CIRCL(CONST progress: double);
   begin
     k:=0;
     while k<length(Particle) do begin
-      tau:=(k/length(Particle)+progress)*2*pi;
+      tau:=(k/length(Particle)+sqr(1-progress))*2*pi;
       targetPosition[0]:=sin(     lissajousParam[0]*tau);
       targetPosition[2]:=sin(pi/6+lissajousParam[1]*tau);
       targetPosition[1]:=sin(pi/3+lissajousParam[2]*tau);
       spring:=20;
-      with Particle[k] do a:=accel(v,p,targetPosition,spring,-10);
+      with Particle[k] do a:=accel(v,p,targetPosition,spring,-5);
       for i:=k+1 to k+31 do with Particle[i] do begin
-        targetPosition:=Particle[i-1].p*0.5+targetPosition*0.5;
-        spring*=0.99;
-        a:=accel(v,p,targetPosition,spring,-10)
+        targetPosition:=Particle[i-1].p*0.3+targetPosition*0.7;
+        spring*=1.02;
+        a:=accel(v,p,targetPosition,spring,-5)
       end;
       k+=32
     end;
@@ -628,9 +678,13 @@ PROCEDURE TParticleEngine.updateA_sheet(CONST progress: double);
       if ix<31 then begin targetPosition+=Particle[(ix+1) shl 5 or iy].p; n+=1; end;
       if iy> 0 then begin targetPosition+=Particle[ix shl 5 or (iy-1)].p; n+=1; end;
       if iy<31 then begin targetPosition+=Particle[ix shl 5 or (iy+1)].p; n+=1; end;
-      targetPosition:=targetPosition*(1/n)-allPointsCenter;
+      targetPosition:=targetPosition*(1/n);
       a:=accel(v,p,targetPosition,40,-2);
-      if n<4 then a+=p*(1/(sqr(p[0])+sqr(p[1])+sqr(p[2])));
+      if n<4 then begin
+        targetPosition:=p-allPointsCenter;
+        a+=targetPosition*((2-1.5*progress)/(sqr(targetPosition[0])+sqr(targetPosition[1])+sqr(targetPosition[2])));
+        a-=allPointsCenter;
+      end;
     end;
   end;
 
