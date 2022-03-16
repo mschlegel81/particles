@@ -24,7 +24,8 @@ TYPE
     attractionMode:byte;
     commonTargetColor:TVector3;
     lissajousParam:array[0..2] of byte;
-    Particle: array [0..1023] of TParticle;
+    Particle:  array [0..1023] of TParticle;
+    gridPoint: array [0..1023] of TIntVec3;
 
     PROCEDURE updateA_cyclic(CONST progress:double);
     PROCEDURE updateA_groupedCyclic(CONST progress:double);
@@ -34,6 +35,7 @@ TYPE
     PROCEDURE updateA_swirl(CONST progress:double);
     PROCEDURE updateA_icosahedron(CONST progress:double);
     PROCEDURE updateA_wave(CONST progress:double);
+    PROCEDURE calculateGridPositions;
     PROCEDURE updateA_grid(CONST progress:double);
     PROCEDURE updateA_lissajous(CONST progress:double);
     PROCEDURE updateA_vogler(CONST progress:double);
@@ -179,6 +181,17 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         color+=(commonTargetColor+spherePoints[(i*31) and 1023]*0.1-color)*(dt);
     end;
 
+  PROCEDURE updateColors_grid;
+    VAR i:longint;
+        c:TVector3;
+    begin
+      for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        c:=commonTargetColor+spherePoints[(i*31) and 1023]*0.1;
+        if gridPoint[i,lissajousParam[0] mod 3]=0 then c:=WHITE-c;
+        color+=(c-color)*(0.1*dt);
+      end;
+    end;
+
   PROCEDURE updateColors_reds;
     begin
       commonTargetColor[2]-=commonTargetColor[2]*(0.3*dt);
@@ -218,7 +231,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       3: begin moveTowardsTargets(@updateA_heart);                                          updateColors_reds;               end;
       4: begin moveTowardsTargets(@updateA_wave);                                           updateColors_byVerticalVelocity; end;
       5: begin moveTowardsTargets(@updateA_swirl);                                          updateColors_byRadius;           end;
-      6: begin moveTowardsTargets(@updateA_grid);                                           updateColors_commmonTarget;      end;
+      6: begin moveTowardsTargets(@updateA_grid);                                           updateColors_grid;      end;
       7: begin
            for i:=0 to length(Particle)-1 do with Particle[i] do begin
              fallAndBounce(i);
@@ -411,45 +424,67 @@ PROCEDURE TParticleEngine.updateA_wave(CONST progress: double);
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_grid(CONST progress: double);
-  VAR occupied:array[0..1023] of TIntVec3;
-      i:longint;
-  FUNCTION isOccupied(CONST k:TIntVec3):boolean;
-    VAR j:longint;
+CONST GRID_SIZE=0.2;
+      INV_GRID_SIZE=1/GRID_SIZE;
+PROCEDURE TParticleEngine.calculateGridPositions;
+  CONST OCC_RAD=20;
+  VAR occupied:bitpacked array[-OCC_RAD..OCC_RAD,-OCC_RAD..OCC_RAD,-OCC_RAD..OCC_RAD] of boolean;
+  PROCEDURE clearOccupied;
+    VAR i,j,k:longint;
     begin
-      result:=false;
-      for j:=0 to i-1 do if occupied[j]=k then exit(true);
+      for i:=-OCC_RAD to OCC_RAD do
+      for j:=-OCC_RAD to OCC_RAD do
+      for k:=-OCC_RAD to OCC_RAD do occupied[i,j,k]:=false;
     end;
 
-  VAR k:TIntVec3;
-      tgtCol:TVector3;
-      x,y,di:longint;
-  begin
-    di:=trunc(progress*8);
-    for i:=0 to length(Particle)-1 do with Particle[i] do begin
-      k:=roundVector(p*5);
-      if (di<6) and isOccupied(k) then begin
-        case byte((i+di) mod 6) of
-          0: begin x:=0; y:=1; end;
-          1: begin x:=0; y:=2; end;
-          2: begin x:=1; y:=0; end;
-          3: begin x:=1; y:=2; end;
-          4: begin x:=2; y:=0; end;
-          5: begin x:=2; y:=1; end;
+  PROCEDURE markAsOccupied(CONST k:TIntVec3);
+    begin
+      if (k[0]>=-OCC_RAD) and (k[0]<=OCC_RAD) and
+         (k[1]>=-OCC_RAD) and (k[1]<=OCC_RAD) and
+         (k[2]>=-OCC_RAD) and (k[2]<=OCC_RAD) then occupied[k[0],k[1],k[2]]:=true;
+    end;
+
+  FUNCTION isOccupied(CONST k:TIntVec3):boolean;
+    begin
+      result:=(k[0]>=-OCC_RAD) and (k[0]<=OCC_RAD) and
+              (k[1]>=-OCC_RAD) and (k[1]<=OCC_RAD) and
+              (k[2]>=-OCC_RAD) and (k[2]<=OCC_RAD) and
+              occupied[k[0],k[1],k[2]];
+    end;
+
+  FUNCTION findVacantSpot(CONST k:TIntVec3):TIntVec3;
+    VAR radius:longint=0;
+        di,dj,dk:longint;
+    begin
+      while true do begin
+        for di:=-radius to radius do
+        for dj:=-radius to radius do
+        for dk:=-radius to radius do
+        if max(max(abs(di),abs(dj)),abs(dk))=radius then begin
+          result:=k;
+          result[0]+=di;
+          result[1]+=dj;
+          result[2]+=dk;
+          if not(isOccupied(result)) then exit(result);
         end;
-        if      (k[y]>0) and (k[x]> -k[y]) and (k[x]< k[y]) then k[x]+=1
-        else if (k[y]<0) and (k[x]<=-k[y]) and (k[x]> k[y]) then k[x]-=1
-        else if (k[x]>0) then k[y]-=1
-        else                  k[y]+=1;
+        inc(radius);
       end;
-
-      occupied[i]:=k;
-      tgtCol:=(commonTargetColor+spherePoints[(i*31) and 1023]*0.1);
-      if k[lissajousParam[0] mod 3]=0
-      then color:=WHITE-tgtCol;
-
-      a:=accel(v,p,k*0.2,20,-100*progress);
     end;
+
+  VAR i:longint;
+  begin
+    clearOccupied;
+    for i:=0 to length(Particle)-1 do begin
+      gridPoint[i]:=findVacantSpot(roundVector(Particle[i].p*INV_GRID_SIZE));
+      markAsOccupied(gridPoint[i]);
+    end;
+  end;
+
+PROCEDURE TParticleEngine.updateA_grid(CONST progress: double);
+  VAR i:longint;
+  begin
+    for i:=0 to length(Particle)-1 do with Particle[i] do
+      a:=accel(v,p,gridPoint[i]*GRID_SIZE,5,-20 );
   end;
 
 PROCEDURE TParticleEngine.updateA_lissajous(CONST progress: double);
@@ -889,8 +924,8 @@ PROCEDURE TParticleEngine.switchAttractionMode;
       Particle[k]:=tmp;
     end;
 
-//    if attractionMode<>GRID_TARGET then attractionMode:=GRID_TARGET else
     attractionMode:=m;
+    if attractionMode=GRID_TARGET then calculateGridPositions;
   end;
 
 end.
