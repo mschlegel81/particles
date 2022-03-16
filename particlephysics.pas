@@ -786,7 +786,7 @@ PROCEDURE TParticleEngine.updateA_bicyclic(CONST progress: double);
       r2:=euklideanNorm(tgt2-p);
 
       if r1>r2 then targetPosition:=tgt1 else targetPosition:=tgt2;
-      a:=accel(v,p,targetPosition,5,-5)-p*0.01;
+      a:=accel(v,p,targetPosition,10,-10)-p*0.01;
     end;
   end;
 
@@ -795,7 +795,6 @@ PROCEDURE TParticleEngine.updateA_sliver(CONST progress: double);
       tgt:TVector3=(0,0.5,0);
   begin
     tgt[1]:=-1+1.5*progress;
-
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
       if i/length(Particle)<progress*2
       then begin
