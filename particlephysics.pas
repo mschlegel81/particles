@@ -89,7 +89,7 @@ IMPLEMENTATION
 USES math,sysutils,LCLProc;
 CONST
   WHITE:TVector3=(1,1,1);
-  ATTRACTION_MODE_COUNT=25;
+  ATTRACTION_MODE_COUNT=26;
   FIBFAK=2*pi/sqr((sqrt(5)-1)/2);
 
 PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
@@ -111,11 +111,12 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
     end;
 
   VAR dt:double;
-  PROCEDURE fallAndBounce(CONST i:longint);
+  FUNCTION fallAndBounce(CONST i:longint):boolean;
     CONST BLUE  :TVector3=(0,0,1);
     VAR acc:TVector3;
         hitTime:double;
     begin
+      result:=false;
       with Particle[i] do begin
         acc[0]:=0;
         acc[1]:=-1;
@@ -125,12 +126,14 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
           p[1]:=-1;
           v[1]:=1;
           color:=BLUE;
+          result:=true;
         end;
         if (v[1]<0) and (p[1]+v[1]*dt<=-1) then begin
           hitTime:=(-1-p[1])/v[1];
           v[1]:=0.9*abs(v[1]);
           p[1]:=-1+v[1]*(dt-hitTime);
           color:=color*0.7+BLUE*0.3;
+          result:=true;
         end else p+=v*dt;
       end;
     end;
@@ -244,7 +247,63 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
        end;
      end;
 
-  VAR i: integer;
+  PROCEDURE fallingRain;
+    VAR i:longint;
+    begin
+      for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        fallAndBounce(i);
+        if (p[1]<=-0.99) and (abs(v[1])<1E-2) then begin
+          p[0]:=random+random+random+random+random+random-3;
+          p[2]:=random+random+random+random+random+random-3;
+          p[1]:=2;
+          color:=commonTargetColor+(WHITE-commonTargetColor)*random;
+          v:=ZERO_VECTOR;
+          v[1]:=0.5-random;
+        end;
+      end;
+    end;
+
+  PROCEDURE fallingFountain;
+    VAR i:longint;
+    begin
+      for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        fallAndBounce(i);
+        if (sqr(p[0])+sqr(p[1]+1)+sqr(p[2])<1E-2) then begin
+          v[1]+=5;
+          v+=randomOnSphere*0.2;
+          color:=commonTargetColor+(WHITE-commonTargetColor)*random;
+        end else if p[1]<=-0.99 then begin
+           v[0]-=dt*p[0];
+           v[2]-=dt*p[2];
+        end;
+      end;
+    end;
+
+  PROCEDURE fallingPyramid;
+    VAR i:longint;
+    begin
+      for i:=0 to length(Particle)-1 do with Particle[i] do begin
+
+        if max(abs(p[2]),abs(p[0]))<1 then begin
+          p[1]+=max(abs(p[2]),abs(p[0]))-1;
+          if fallAndBounce(i) then color+=WHITE-commonTargetColor;
+          p[1]-=max(abs(p[2]),abs(p[0]))-1;
+        end else fallAndBounce(i);
+
+        if (p[1]<=-0.99) and (abs(v[1])<1E-2) then begin
+          p[0]:=1-2*random;
+          p[2]:=1-2*random;
+          if abs(p[0])>abs(p[2])
+          then p[0]:=0.1*round(10*p[0])
+          else p[2]:=0.1*round(10*p[2]);
+          p[1]:=2;
+          color:=commonTargetColor+(WHITE-commonTargetColor)*random;
+          v:=ZERO_VECTOR;
+          v[1]:=0.5-random;
+        end;
+      end;
+    end;
+
   begin
     fixBrokenPositions;
     dt:=(modeTicks-lastModeTicks)*1E-3;
@@ -277,17 +336,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         moveTowardsTargets(@updateA_grid);
         updateColors_grid;
       end;
-      7: for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        fallAndBounce(i);
-        if (p[1]<=-0.99) and (abs(v[1])<1E-2) then begin
-          p[0]:=random+random+random+random+random+random-3;
-          p[2]:=random+random+random+random+random+random-3;
-          p[1]:=2;
-          color:=commonTargetColor+(WHITE-commonTargetColor)*random;
-          v:=ZERO_VECTOR;
-          v[1]:=0.5-random;
-        end;
-      end;
+      7: fallingRain;
       8: begin
         moveTowardsTargets(@updateA_lissajous);
         updateColors_rainbow;
@@ -312,17 +361,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         moveTowardsTargets(@updateA_sheet);
         updateColors_sheet(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS,dt);
       end;
-      14: for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        fallAndBounce(i);
-        if (sqr(p[0])+sqr(p[1]+1)+sqr(p[2])<1E-2) then begin
-          v[1]+=5;
-          v+=randomOnSphere*0.2;
-          color:=commonTargetColor+(WHITE-commonTargetColor)*random;
-        end else if p[1]<=-0.99 then begin
-           v[0]-=dt*p[0];
-           v[2]-=dt*p[2];
-        end;
-      end;
+      14: fallingFountain;
       15: begin
         moveTowardsTargets(@updateA_icosahedron,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));
         updateColors_byRadius;
@@ -357,6 +396,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         moveTowardsTargets(@updateA_cyclicMirror);
         updateColors_byRadius;
       end;
+      25: fallingPyramid;
     end;
     lastModeTicks:=modeTicks;
   end;
@@ -876,7 +916,7 @@ PROCEDURE TParticleEngine.thomasAttractor(CONST dt:double);
       result[0]:=sin(x[1]*spatial_scaling)-b*spatial_scaling*x[0];
       result[1]:=sin(x[2]*spatial_scaling)-b*spatial_scaling*x[1];
       result[2]:=sin(x[0]*spatial_scaling)-b*spatial_scaling*x[2];
-      result*=2;
+      //result*=2;
     end;
   CONST maxTimeStep=0.01;
 
@@ -911,7 +951,7 @@ PROCEDURE TParticleEngine.updateA_X1(CONST progress: double);
       a[2]:=5*(sqr(p[1])-sqr(p[0]));
       a*=1/(sqr(a[0])+sqr(a[1])+sqr(a[2]));
       a-=p;
-      a-=v*0.5;
+      a-=v;
     end;
   end;
 
@@ -925,7 +965,7 @@ PROCEDURE TParticleEngine.updateA_X2(CONST progress: double);
       a*=cos(p[0]*10)/(sqr(a[0])+sqr(a[1]));
       a[2]:=sin(p[1]);
       a-=p;
-      a-=v*1;
+      a-=v;
     end;
   end;
 
@@ -1098,6 +1138,7 @@ PROCEDURE TParticleEngine.switchAttractionMode;
       Particle[k]:=tmp;
     end;
 
+    //if attractionMode<>22 then attractionMode:=22 else
     attractionMode:=m;
     if attractionMode=GRID_TARGET then calculateGridPositions;
   end;
