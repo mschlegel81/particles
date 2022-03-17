@@ -48,6 +48,7 @@ TYPE
     frameCount    : integer;
     LastFrameTicks: integer;
     modeTicks     : integer;
+    sleepTimeMilliseconds:double;
 
     mouseX,mouseY : longint;
     mouseIsDown   : byte;
@@ -72,6 +73,7 @@ CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
   begin
     inherited CreateNew(TheOwner);
     randomize;
+    sleepTimeMilliseconds:=0;
     if LazarusResources.find(ClassName)=nil then begin
       SetBounds((screen.width-800) div 2,(screen.height-600) div 2,800,600);
       caption:='Particles...';
@@ -290,7 +292,6 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       ay:double=az;
       timer:single;
       tickDelta: integer;
-      sleepTimeMilliseconds:longint=0;
       fps:double;
   begin
     inc(frameCount);
@@ -310,9 +311,10 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       if not AreaInitialized then initializeArea;
       timer:=ParticleEngine.update(modeTicks);
 
-      sleepTimeMilliseconds:=trunc(sleepTimeMilliseconds+TARGET_TICKS_PER_FRAME-tickDelta);
+      sleepTimeMilliseconds:=sleepTimeMilliseconds+0.1*(TARGET_TICKS_PER_FRAME-tickDelta);
       if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
-      sleep(sleepTimeMilliseconds);
+      sleep(trunc(sleepTimeMilliseconds));
+      DebugLn(['Sleep: ',sleepTimeMilliseconds]);
 
       //Update rotation angles
       if (mouseIsDown<>1) then begin
