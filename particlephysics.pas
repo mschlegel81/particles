@@ -974,7 +974,7 @@ PROCEDURE TParticleEngine.thomasAttractor(CONST dt: double);
       result[1]:=sin(x[2]*spatial_scaling)-b*spatial_scaling*x[1];
       result[2]:=sin(x[0]*spatial_scaling)-b*spatial_scaling*x[2];
     end;
-  CONST maxTimeStep=0.001;
+  CONST maxTimeStep=0.01;
 
   VAR i,k,subSteps:longint;
       dtSub:double;
@@ -1210,7 +1210,6 @@ PROCEDURE TParticleEngine.switchAttractionMode;
       Particle[i]:=Particle[k];
       Particle[k]:=tmp;
     end;
-    //if attractionMode<>5 then attractionMode:=5 else
     attractionMode:=m;
     if attractionMode=GRID_TARGET then calculateGridPositions;
     if attractionMode=PYRAMID_TARGET then prepareForPyramid;

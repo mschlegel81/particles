@@ -48,7 +48,6 @@ TYPE
     frameCount    : integer;
     LastFrameTicks: integer;
     modeTicks     : integer;
-    maxTicksBetweenFrames: integer;
 
     mouseX,mouseY : longint;
     mouseIsDown   : byte;
@@ -59,7 +58,8 @@ TYPE
   end;
 
 VAR AnExampleForm: TExampleForm;
-CONST TARGET_FPS=40;
+CONST TARGET_FPS=60;
+      TARGET_TICKS_PER_FRAME=1000/TARGET_FPS;
 
 IMPLEMENTATION
 
@@ -67,7 +67,6 @@ VAR rx: single=0;
     ry: single=0;
     ParticleEngine: TParticleEngine;
     ParticleList: GLuint;
-    sleepTimeMilliseconds:longint=0;
 
 CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
   begin
@@ -165,7 +164,6 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
 PROCEDURE TExampleForm.IdleFunc(Sender: TObject; VAR done: boolean);
   begin
     if not(Assigned(OpenGLControl1)) then exit;
-    sleep(sleepTimeMilliseconds);
     OpenGLControl1.Invalidate;
     done:=false; // tell lcl to handle messages and return immediatly
   end;
@@ -292,33 +290,31 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       ay:double=az;
       timer:single;
       tickDelta: integer;
+      sleepTimeMilliseconds:longint=0;
+      fps:double;
   begin
     inc(frameCount);
     tickDelta:=OpenGLControl1.FrameDiffTimeInMSecs;
-    if tickDelta>maxTicksBetweenFrames then maxTicksBetweenFrames:=tickDelta;
     inc(modeTicks     ,tickDelta);
     inc(LastFrameTicks,tickDelta);
     if (LastFrameTicks>=1000) then begin
-      if      frameCount*1000>LastFrameTicks*TARGET_FPS*1.5 then inc(sleepTimeMilliseconds)
-      else if frameCount*1000<LastFrameTicks*TARGET_FPS     then dec(sleepTimeMilliseconds);
-      if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
+      fps:=frameCount*1000/LastFrameTicks;
       dec(LastFrameTicks,1000);
 
-      DebugLn(['TExampleForm.OpenGLControl1Paint Frames per second: ',frameCount,' sleeping for: ',sleepTimeMilliseconds,'ms; Max delay: ',maxTicksBetweenFrames]);
-      caption:='Particles ('+intToStr(frameCount)+'fps, '+intToStr(sleepTimeMilliseconds)+'ms sleep)';
+      caption:='Particles ('+intToStr(frameCount)+'fps)';
+      DebugLn(['TExampleForm.OpenGLControl1Paint Frames per second: ',fps]);
       frameCount:=0;
-      maxTicksBetweenFrames:=0;
     end;
 
     if OpenGLControl1.MakeCurrent then begin
       if not AreaInitialized then initializeArea;
       timer:=ParticleEngine.update(modeTicks);
 
-      glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);
-      glLoadIdentity;
-      glPushMatrix;
+      sleepTimeMilliseconds:=trunc(sleepTimeMilliseconds+TARGET_TICKS_PER_FRAME-tickDelta);
+      if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
+      sleep(sleepTimeMilliseconds);
 
-      //Rotate view:
+      //Update rotation angles
       if (mouseIsDown<>1) then begin
         if ParticleEngine.currentAttractionMode=CLOCK_TARGET
         then ry-=ry*timer
@@ -331,19 +327,23 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
         if rx<-180 then rx+=360;
       end;
 
+      glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);
+      glLoadIdentity;
+      glPushMatrix;
       //Scale to preserve aspect ratio
       if OpenGLControl1.width>OpenGLControl1.height
       then ax*=OpenGLControl1.height/OpenGLControl1.width
       else ay*=OpenGLControl1.width/OpenGLControl1.height;
       glTranslatef(0,0,-5);
       glScalef(ax,ay,az);
+      //Rotate
       glRotatef(rx,0.1,0.0,0.0);
       glRotatef(ry,0.0,1.0,0.0);
+      //Draw
       glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
       glEnable(GL_BLEND);
       ParticleEngine.DrawParticles(ParticleList);
       glDisable(GL_BLEND);
-
       glPopMatrix;
       OpenGLControl1.SwapBuffers;
     end;
