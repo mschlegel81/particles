@@ -24,7 +24,7 @@ written 2022 by Martin Schlegel
 UNIT particlesForm;
 
 {$mode objfpc}{$H+}
-
+{$define finerBalls}
 INTERFACE
 
 USES
@@ -187,7 +187,12 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
        (0,3,1),(1, 3,5),( 9,10,8),(11,10,9),
        (2,8,0),(0, 8,4),( 5,11,6),( 7,11,5),
        (1,6,2),(4, 7,3),( 2, 6,9),(10, 7,4));
+    {$ifdef FINERBALLS}
+    CONST FINER_NODE:array[0..11] of byte = (0,3,5,3,1,4,3,4,5,5,4,2);
+    VAR p:array[0..5] of TVector3;
+    {$endif}
     VAR n:TVector3;
+
         i,j:longint;
     begin
       if GLInitialized then exit;
@@ -200,14 +205,15 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       lightamb[2]:=0.2;
       lightamb[3]:=1.0;
       {diffuse color}
-      lightdif[0]:=0.5;
-      lightdif[1]:=0.5;
-      lightdif[2]:=0.5;
+      lightdif[0]:=1;
+      lightdif[1]:=1;
+      lightdif[2]:=1;
       lightdif[3]:=1.0;
       {diffuse position}
-      lightpos[0]:=0.0;
-      lightpos[1]:=1.0;
-      lightpos[2]:=0.0;
+      n:=vectorOf(1,2,0); n*=1/euklideanNorm(n);
+      lightpos[0]:=n[0];
+      lightpos[1]:=n[1];
+      lightpos[2]:=n[2];
       lightpos[3]:=0.0;
 
       glLightfv(GL_LIGHT0,GL_AMBIENT ,lightamb);
@@ -237,6 +243,28 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       glNewList(ParticleList, GL_COMPILE);
         glBegin(GL_TRIANGLES);
           for i:=0 to 19 do begin
+            {$ifdef FINERBALLS}
+            p[0]:=C_IcosahedronNodes[C_icosahedronFaces[i,0]];
+            p[1]:=C_IcosahedronNodes[C_icosahedronFaces[i,1]];
+            p[2]:=C_IcosahedronNodes[C_icosahedronFaces[i,2]];
+            p[3]:=p[0]+p[1];
+            p[4]:=p[1]+p[2];
+            p[5]:=p[2]+p[0];
+            for j:=0 to 5 do p[j]*=1/euklideanNorm(p[j]);
+            //          2
+            //         / \
+            //        /   \
+            //       5-----4
+            //      / \   / \
+            //     /   \ /   \
+            //    0-----3-----1
+            for j:=0 to 11 do begin
+              n:=p[FINER_NODE[j]];
+              glNormal3f(n[0],n[1],n[2]);
+              n*=0.013;
+              glVertex3f(n[0],n[1],n[2]);
+            end;
+            {$else}
             for j:=0 to 2 do begin
               n:=C_IcosahedronNodes[C_icosahedronFaces[i,j]];
               n*=1/euklideanNorm(n);
@@ -244,7 +272,9 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
               n*=0.013;
               glVertex3f(n[0],n[1],n[2]);
             end;
+            {$endif}
           end;
+
         glEnd;
       glEndList;
       glEnable(GL_LIGHTING);
@@ -309,6 +339,7 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
       glScalef(ax,ay,az);
       glRotatef(rx,0.1,0.0,0.0);
       glRotatef(ry,0.0,1.0,0.0);
+      glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
       glEnable(GL_BLEND);
       ParticleEngine.DrawParticles(ParticleList);
       glDisable(GL_BLEND);
