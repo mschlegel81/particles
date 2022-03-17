@@ -164,7 +164,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
 
       updateA(lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS);
       for i:=0 to imax do with Particle[i] do begin
-        tmp:=sumOfSquares(a);
+        tmp:=vectors.sumOfSquares(a);
         if (tmp>aMax) and not(isInfinite(tmp)) and not(isNan(tmp)) then aMax:=tmp;
       end;
       aMax:=sqrt(aMax);
@@ -315,11 +315,14 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
     end;
 
   PROCEDURE fallingPyramid;
-    VAR i:longint;
+    VAR i,i0,i1:longint;
     begin
+      i0:=round(length(Particle)*lastModeTicks*2/MODE_SWITCH_INTERVAL_IN_TICKS);
+      i1:=round(length(Particle)*modeTicks    *2/MODE_SWITCH_INTERVAL_IN_TICKS);
+
       for i:=0 to length(Particle)-1 do with Particle[i] do begin
 
-        if max(abs(p[2]),abs(p[0]))<1 then begin
+        if max(abs(p[2]),abs(p[0]))<=1 then begin
           p[1]+=max(abs(p[2]),abs(p[0]))-1;
           if fallAndBounce(i) then begin
             color:=WHITE-commonTargetColor;
@@ -328,12 +331,19 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
           p[1]-=max(abs(p[2]),abs(p[0]))-1;
         end else fallAndBounce(i);
 
-        if (p[1]<=-0.99) and (abs(v[1])<1E-2) then begin
+        if (i>=i0) and (i<=i1) then begin
+        //if (p[1]<=-0.99) and (abs(v[1])<1E-2) then begin
           p[0]:=1-2*random;
           p[2]:=1-2*random;
-          if abs(p[0])>abs(p[2])
-          then p[0]:=0.1*round(10*p[0])
-          else p[2]:=0.1*round(10*p[2]);
+          if random<0.2 then begin
+            if random<0.5
+            then p[2]:=-p[0]
+            else p[2]:=p[0];
+          end else begin
+            if abs(p[0])>abs(p[2])
+            then p[0]:=0.1*round(10*p[0])
+            else p[2]:=0.1*round(10*p[2]);
+          end;
           p[1]:=2;
           color:=commonTargetColor+(WHITE-commonTargetColor)*random;
           v:=ZERO_VECTOR;
@@ -566,26 +576,33 @@ PROCEDURE TParticleEngine.updateA_sphere(CONST progress: double; CONST particleI
 
 PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double; CONST particleIndex:longint);
   FUNCTION accel(CONST v,p:TVector3):TVector3;
-    VAR f:double;
+    VAR q:TVector3;
+        f:double;
+        r:double;
     begin
-      f:=exp(-8*sqr(p[2]));
-      result:=p*(-1);
-      result[0]+=(1-f)*p[1];
-      result[1]-=(1-f)*p[0];
-      result-=v*(f*2*euklideanNorm(v));//*2*(exp(-8*sqr(p[2]))));
+      q:=p;
+      q[1]+=0.5;
+      r:=euklideanNorm(q);
+      f:=exp(-8*sqr(q[1]));
+      result:=q*(-1/r);
+      result[0]+=0.1*q[2]/r;
+      result[2]-=0.1*q[0]/r;
+      result-=v*(f*euklideanNorm(v));//*2*(exp(-8*sqr(p[2]))));
+      result[1]*=2;
     end;
-  CONST r0   =0.1;
+  CONST r0   =0.08;
   VAR angle:double;
   begin
     with Particle[particleIndex] do begin
       a:=accel(v,p);
-      if euklideanNorm(p)<r0 then begin
-        v[2]:=5-10*random;
+      if (sqr(p[0])+sqr(p[1]+0.5)+sqr(p[2]))<sqr(r0) then begin
+        v[1]:=5*random;
         angle:=random*2*pi;
-        v[1]:=v[2]*0.1*sin(angle);
-        v[0]:=v[2]*0.1*cos(angle);
+        v[2]:=v[1]*0.1*sin(angle);
+        v[0]:=v[1]*0.1*cos(angle);
 
         p:=v*(r0/euklideanNorm(v));
+        p[1]-=0.5;
         color:=WHITE;
       end;
     end;
@@ -989,7 +1006,7 @@ PROCEDURE TParticleEngine.updateA_X1(CONST progress: double);
       a[0]:= p[1];
       a[1]:=-p[0];
       a[2]:=5*(sqr(p[1])-sqr(p[0]));
-      a*=2/sumOfSquares(a);
+      a*=2/vectors.sumOfSquares(a);
       a-=p*0.6;
       a-=v*0.7;
       a*=2;
@@ -1154,19 +1171,9 @@ PROCEDURE TParticleEngine.switchAttractionMode;
     VAR i:longint;
     begin
       for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        v:=ZERO_VECTOR;
-        repeat p:=vectorOf(random+random+random+random+random+random-3,
-                           p[1],
-                           random+random+random+random+random+random-3)
-        until (abs(p[0])>1) or (abs(p[2])>1);
-
-        //if (abs(p[0])<1) and (abs(p[2])<1) then begin
-        //  if abs(p[0])>abs(p[2])
-        //  then p[0]:=0.1*round(10*p[0])
-        //  else p[2]:=0.1*round(10*p[2]);
-        //  if p[1]<max(abs(p[2]),abs(p[0]))-1 then p[1]:=2;
-        //end;
-
+        p[1]+=1;
+        v:=p*(5/vectors.sumOfSquares(p));
+        p[1]-=1;
       end;
     end;
 
@@ -1203,7 +1210,7 @@ PROCEDURE TParticleEngine.switchAttractionMode;
       Particle[i]:=Particle[k];
       Particle[k]:=tmp;
     end;
-
+    //if attractionMode<>5 then attractionMode:=5 else
     attractionMode:=m;
     if attractionMode=GRID_TARGET then calculateGridPositions;
     if attractionMode=PYRAMID_TARGET then prepareForPyramid;
