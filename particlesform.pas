@@ -48,6 +48,7 @@ TYPE
     frameCount    : integer;
     LastFrameTicks: integer;
     modeTicks     : integer;
+    maxTicksBetweenFrames: integer;
 
     mouseX,mouseY : longint;
     mouseIsDown   : byte;
@@ -58,7 +59,7 @@ TYPE
   end;
 
 VAR AnExampleForm: TExampleForm;
-CONST TARGET_FPS=50;
+CONST TARGET_FPS=40;
 
 IMPLEMENTATION
 
@@ -164,8 +165,8 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
 PROCEDURE TExampleForm.IdleFunc(Sender: TObject; VAR done: boolean);
   begin
     if not(Assigned(OpenGLControl1)) then exit;
-    OpenGLControl1.Invalidate;
     sleep(sleepTimeMilliseconds);
+    OpenGLControl1.Invalidate;
     done:=false; // tell lcl to handle messages and return immediatly
   end;
 
@@ -179,7 +180,7 @@ VAR lightamb, lightdif, lightpos: array [0..3] of GLfloat;
 PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
   CONST GLInitialized: boolean = false;
 
-  PROCEDURE InitGL;
+  PROCEDURE initializeArea;
     CONST C_icosahedronFaces:array[0..19,0..2] of byte=
       ((1,2,0),(0, 4,3),( 5, 6,1),(3, 7, 5),
        (2,9,8),(8,10,4),(11, 9,6),(7,10,11),
@@ -247,46 +248,47 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
         glEnd;
       glEndList;
       glEnable(GL_LIGHTING);
+
+      glMatrixMode (GL_PROJECTION);
+      glLoadIdentity ();
+      glFrustum (-0.1, 0.1, -0.1, 0.1, 0.35, 20.0);
+      glMatrixMode (GL_MODELVIEW);
+      glViewport (0, 0, OpenGLControl1.width, OpenGLControl1.height);
+      AreaInitialized:=true;
     end;
 
   CONST az=1;
   VAR ax:double=az;
       ay:double=az;
       timer:single;
+      tickDelta: integer;
   begin
     inc(frameCount);
-    inc(modeTicks     ,OpenGLControl1.FrameDiffTimeInMSecs);
-    inc(LastFrameTicks,OpenGLControl1.FrameDiffTimeInMSecs);
+    tickDelta:=OpenGLControl1.FrameDiffTimeInMSecs;
+    if tickDelta>maxTicksBetweenFrames then maxTicksBetweenFrames:=tickDelta;
+    inc(modeTicks     ,tickDelta);
+    inc(LastFrameTicks,tickDelta);
     if (LastFrameTicks>=1000) then begin
-      dec(LastFrameTicks,1000);
-      if      frameCount>TARGET_FPS*1.5 then inc(sleepTimeMilliseconds)
-      else if frameCount<TARGET_FPS     then dec(sleepTimeMilliseconds);
+      if      frameCount*1000>LastFrameTicks*TARGET_FPS*1.5 then inc(sleepTimeMilliseconds)
+      else if frameCount*1000<LastFrameTicks*TARGET_FPS     then dec(sleepTimeMilliseconds);
       if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
-      DebugLn(['TExampleForm.OpenGLControl1Paint Frames per second: ',frameCount,' sleeping for: ',sleepTimeMilliseconds,'ms']);
+      dec(LastFrameTicks,1000);
+
+      DebugLn(['TExampleForm.OpenGLControl1Paint Frames per second: ',frameCount,' sleeping for: ',sleepTimeMilliseconds,'ms; Max delay: ',maxTicksBetweenFrames]);
       caption:='Particles ('+intToStr(frameCount)+'fps, '+intToStr(sleepTimeMilliseconds)+'ms sleep)';
       frameCount:=0;
+      maxTicksBetweenFrames:=0;
     end;
 
-    if OpenGLControl1.MakeCurrent then
-    begin
-      if not AreaInitialized then begin
-        InitGL;
-        glMatrixMode (GL_PROJECTION);    { prepare for and then }
-        glLoadIdentity ();               { define the projection }
-
-        glFrustum (-0.1, 0.1, -0.1, 0.1, 0.35, 20.0); { transformation }
-        glMatrixMode (GL_MODELVIEW);  { back to modelview matrix }
-        glViewport (0, 0, OpenGLControl1.width, OpenGLControl1.height);
-                                      { define the viewport }
-        AreaInitialized:=true;
-      end;
-
+    if OpenGLControl1.MakeCurrent then begin
+      if not AreaInitialized then initializeArea;
       timer:=ParticleEngine.update(modeTicks);
 
       glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);
-      glLoadIdentity;             { clear the matrix }
+      glLoadIdentity;
       glPushMatrix;
 
+      //Rotate view:
       if (mouseIsDown<>1) then begin
         if ParticleEngine.currentAttractionMode=CLOCK_TARGET
         then ry-=ry*timer
@@ -299,16 +301,14 @@ PROCEDURE TExampleForm.OpenGLControl1Paint(Sender: TObject);
         if rx<-180 then rx+=360;
       end;
 
+      //Scale to preserve aspect ratio
       if OpenGLControl1.width>OpenGLControl1.height
       then ax*=OpenGLControl1.height/OpenGLControl1.width
       else ay*=OpenGLControl1.width/OpenGLControl1.height;
-
       glTranslatef(0,0,-5);
-
       glScalef(ax,ay,az);
       glRotatef(rx,0.1,0.0,0.0);
       glRotatef(ry,0.0,1.0,0.0);
-
       glEnable(GL_BLEND);
       ParticleEngine.DrawParticles(ParticleList);
       glDisable(GL_BLEND);
