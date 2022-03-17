@@ -25,6 +25,7 @@ TYPE
     lastModeTicks:longint;
     attractionMode:byte;
     commonTargetColor:TVector3;
+    commonSaturation,commonHueOffset:TGLfloat;
     lissajousParam:array[0..2] of byte;
     Particle:  array [0..1023] of TParticle;
     gridPoint: array [0..1023] of TIntVec3;
@@ -209,7 +210,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         i:longint;
     begin
       for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        tgt:=hsvColor(i/length(Particle)+commonTargetColor[0],commonTargetColor[1],1);
+        tgt:=hsvColor(i/length(Particle)+commonHueOffset,commonSaturation,1);
         color+=(tgt-color)*(0.1*dt);
       end;
     end;
@@ -235,8 +236,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
 
   PROCEDURE updateColors_reds;
     begin
-      commonTargetColor[2]-=commonTargetColor[2]*(0.3*dt);
-      commonTargetColor[1]-=commonTargetColor[1]*(0.2*dt);
+      commonTargetColor[2]-= commonTargetColor[2]*(0.3*dt);
+      commonTargetColor[1]-= commonTargetColor[1]*(0.2*dt);
       commonTargetColor[0]-=(commonTargetColor[0]-0.5)*(0.1*dt);
       updateColors_commmonTarget;
     end;
@@ -256,7 +257,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         i:longint;
     begin
       for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        tgt:=hsvColor(euklideanNorm(p)+commonTargetColor[0],1,1);
+        tgt:=hsvColor(euklideanNorm(p)+commonHueOffset,1,1);
         color+=(tgt-color)*(dt);
       end;
     end;
@@ -439,7 +440,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
   end;
 
 FUNCTION TParticleEngine.capSubSteps(CONST proposedSubSteps: longint): longint;
-  CONST HARD_UPPER_BOUND=500;
+  CONST HARD_UPPER_BOUND=100;
         HARD_LOWER_BOUND=1;
   begin
     if      proposedSubSteps<HARD_LOWER_BOUND then result:=HARD_LOWER_BOUND
@@ -469,7 +470,7 @@ PROCEDURE TParticleEngine.updateA_cyclic(CONST progress: double);
  end;
 
 PROCEDURE TParticleEngine.updateA_cyclicMirror(CONST progress: double);
-  CONST HALF=512;
+  CONST half=512;
   FUNCTION mirrored(CONST vec:TVector3):TVector3;
     begin
       result:=vec;
@@ -487,7 +488,7 @@ PROCEDURE TParticleEngine.updateA_cyclicMirror(CONST progress: double);
     if progress>0.8  then modul:=modul shr 1;
     modul-=1;
 
-    for i:=0 to HALF-1 do with Particle[i] do begin
+    for i:=0 to half-1 do with Particle[i] do begin
       k:=((i+1) and modul) or (i and not(modul));
       targetPosition:=Particle[k].p+Particle[k].v;
       a:=accel(v,p,targetPosition,50,-50);
@@ -554,7 +555,7 @@ PROCEDURE TParticleEngine.updateA_heart(CONST progress: double; CONST particleIn
       tp [2]:= (0.75  *sin(tau)-0.25  *sin(3*tau));
       tp [1]:= (0.8125*cos(tau)-0.3125*  cos(2*tau)-0.125*  cos(3*tau)-0.0625*  cos(4*tau));
       tp [0]:=0;
-      a:=accel(v,p,tp+colorDelta[particleIndex]*0.5,50,-20)
+      a:=accel(v,p,tp+colorDelta[particleIndex]*(1-progress),50,-20)
     end;
   end;
 
@@ -573,7 +574,7 @@ PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double; CONST particleIn
       result[1]-=(1-f)*p[0];
       result-=v*(f*2*euklideanNorm(v));//*2*(exp(-8*sqr(p[2]))));
     end;
-  CONST r0=0.1;
+  CONST r0   =0.1;
   VAR angle:double;
   begin
     with Particle[particleIndex] do begin
@@ -756,23 +757,22 @@ PROCEDURE TParticleEngine.updateCol_vogler(CONST progress, dt: double);
   end;
 
 PROCEDURE TParticleEngine.updateA_CIRCL(CONST progress: double);
+  CONST spring=5;
+        ATTENUATION=-2;
   VAR i,k:longint;
       tau:double;
       targetPosition:TVector3;
-      spring:double;
   begin
     k:=0;
     while k<length(Particle) do begin
-      tau:=(k/length(Particle)+sqr(1-progress))*2*pi;
+      tau:=(k/length(Particle)+progress)*2*pi;
       targetPosition[0]:=sin(     lissajousParam[0]*tau);
-      targetPosition[2]:=sin(pi/6+lissajousParam[1]*tau);
-      targetPosition[1]:=sin(pi/3+lissajousParam[2]*tau);
-      spring:=20;
-      with Particle[k] do a:=accel(v,p,targetPosition,spring,-5);
+      targetPosition[1]:=sin(pi/6+lissajousParam[1]*tau);
+      targetPosition[2]:=sin(pi/3+lissajousParam[2]*tau);
+      with Particle[k] do a:=accel(v,p,targetPosition,spring,ATTENUATION);
       for i:=k+1 to k+31 do with Particle[i] do begin
-        targetPosition:=Particle[i-1].p*0.3+targetPosition*0.7;
-        spring*=1.02;
-        a:=accel(v,p,targetPosition,spring,-5)
+        targetPosition:=Particle[i-1].p *progress+targetPosition*(1-progress);
+        a:=accel(v,p,targetPosition,spring,ATTENUATION)
       end;
       k+=32
     end;
@@ -903,14 +903,14 @@ PROCEDURE TParticleEngine.updateA_byDistance(CONST progress: double);
     for i:=1 to length(Particle)-1 do with Particle[i] do begin
       for k:=0 to i-1 do begin
         d:=Particle[k].p-p;
-        r:=d[0]*d[0]+d[1]*d[1]+d[2]*d[2];
+        r:=vectors.sumOfSquares(d);
         if (k=0) or (r<rMin) then begin
           rMin:=r;
           dMin:=d;
         end;
       end;
       rMin:=sqrt(rMin);
-      a:=accel(v,p,p+dMin*(0.1/rMin),5,-3);
+      a:=accel(v,p,p+dMin*(0.1/rMin),5,-3)-p*(0.1);
     end;
   end;
 
@@ -1110,7 +1110,7 @@ CONSTRUCTOR TParticleEngine.create;
     attractionMode:=ATTRACTION_MODE_COUNT;
     switchAttractionMode;
     lastModeTicks:=0;
-    lastSubSteps:=100;
+    lastSubSteps:=1;
   end;
 
 DESTRUCTOR TParticleEngine.destroy;
@@ -1154,14 +1154,18 @@ PROCEDURE TParticleEngine.switchAttractionMode;
     VAR i:longint;
     begin
       for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        if (abs(p[0])<1) and (abs(p[2])<1) then begin
-          if abs(p[0])>abs(p[2])
-          then p[0]:=0.1*round(10*p[0])
-          else p[2]:=0.1*round(10*p[2]);
-          if p[1]<max(abs(p[2]),abs(p[0]))-1 then p[1]:=2;
-        end;
-        v:=randomInSphere;
-        v*=(v*p)/euklideanNorm(v);
+        v:=ZERO_VECTOR;
+        repeat p:=vectorOf(random+random+random+random+random+random-3,
+                           p[1],
+                           random+random+random+random+random+random-3)
+        until (abs(p[0])>1) or (abs(p[2])>1);
+
+        //if (abs(p[0])<1) and (abs(p[2])<1) then begin
+        //  if abs(p[0])>abs(p[2])
+        //  then p[0]:=0.1*round(10*p[0])
+        //  else p[2]:=0.1*round(10*p[2]);
+        //  if p[1]<max(abs(p[2]),abs(p[0]))-1 then p[1]:=2;
+        //end;
 
       end;
     end;
@@ -1180,6 +1184,8 @@ PROCEDURE TParticleEngine.switchAttractionMode;
     lissajousParam[2]:=1+random(16);
 
     repeat commonTargetColor:=vectorOf(random,random,random); until commonTargetColor[0]+commonTargetColor[1]+commonTargetColor[2]>1;
+    commonSaturation:=0.3+0.7*random;
+    commonHueOffset:=random;
 
     for p in primes do
     while (lissajousParam[0] mod p=0) and
