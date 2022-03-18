@@ -57,7 +57,7 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="4">
+    <Units Count="5">
       <Unit0>
         <Filename Value="particles.pas"/>
         <IsPartOfProject Value="True"/>
@@ -76,6 +76,11 @@
         <Filename Value="vectors.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit3>
+      <Unit4>
+        <Filename Value="viewwrapper.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="viewWrapper"/>
+      </Unit4>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
