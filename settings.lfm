@@ -1,0 +1,321 @@
+object SettingsForm: TSettingsForm
+  Left = 786
+  Height = 284
+  Top = 180
+  Width = 320
+  AlphaBlend = True
+  AlphaBlendValue = 128
+  BorderStyle = bsNone
+  Caption = 'Particles'
+  ClientHeight = 284
+  ClientWidth = 320
+  Color = clBlue
+  Font.CharSet = ANSI_CHARSET
+  Font.Color = clWhite
+  Font.Height = -12
+  Font.Name = 'Segoe UI'
+  Font.Pitch = fpVariable
+  Font.Quality = fqDraft
+  FormStyle = fsSplash
+  OnCreate = FormCreate
+  OnDestroy = FormDestroy
+  OnResize = FormResize
+  LCLVersion = '2.0.12.0'
+  object GroupBox1: TGroupBox
+    Left = 0
+    Height = 121
+    Top = 0
+    Width = 320
+    Align = alTop
+    Caption = 'Display'
+    ClientHeight = 101
+    ClientWidth = 316
+    TabOrder = 0
+    object Label1: TLabel
+      AnchorSideLeft.Control = GroupBox1
+      AnchorSideTop.Control = fpsTrackBar
+      Left = 5
+      Height = 15
+      Top = 0
+      Width = 56
+      BorderSpacing.Left = 5
+      Caption = 'FPS target:'
+      ParentColor = False
+    end
+    object fpsTargetLabel: TLabel
+      AnchorSideLeft.Control = Label1
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = GroupBox1
+      Left = 71
+      Height = 15
+      Top = 0
+      Width = 12
+      BorderSpacing.Left = 10
+      Caption = '60'
+      ParentColor = False
+    end
+    object Label2: TLabel
+      AnchorSideLeft.Control = Label1
+      AnchorSideTop.Control = Label1
+      AnchorSideTop.Side = asrBottom
+      Left = 5
+      Height = 15
+      Top = 21
+      Width = 22
+      BorderSpacing.Top = 6
+      Caption = 'FPS:'
+      ParentColor = False
+    end
+    object fpsTrackBar: TTrackBar
+      AnchorSideTop.Control = GroupBox1
+      AnchorSideRight.Control = GroupBox1
+      AnchorSideRight.Side = asrBottom
+      Left = 104
+      Height = 25
+      Top = 0
+      Width = 212
+      Frequency = 10
+      Max = 100
+      Min = 10
+      OnChange = fpsTrackBarChange
+      PageSize = 10
+      Position = 60
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 0
+    end
+    object fpsMeasuredLabel: TLabel
+      AnchorSideLeft.Control = fpsTargetLabel
+      AnchorSideTop.Control = Label2
+      Left = 71
+      Height = 15
+      Top = 21
+      Width = 6
+      Caption = '0'
+      ParentColor = False
+    end
+    object Label3: TLabel
+      AnchorSideLeft.Control = Label2
+      AnchorSideTop.Control = Label2
+      AnchorSideTop.Side = asrBottom
+      Left = 5
+      Height = 15
+      Top = 42
+      Width = 44
+      Align = alCustom
+      BorderSpacing.Top = 6
+      Caption = 'Ball size:'
+      ParentColor = False
+    end
+    object ballSizeTrackBar: TTrackBar
+      AnchorSideLeft.Control = fpsTrackBar
+      AnchorSideTop.Control = Label3
+      AnchorSideRight.Control = fpsTrackBar
+      AnchorSideRight.Side = asrBottom
+      Left = 104
+      Height = 25
+      Top = 42
+      Width = 212
+      Frequency = 10
+      Max = 200
+      Min = 10
+      OnChange = ballSizeTrackBarChange
+      PageSize = 10
+      Position = 13
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 1
+    end
+    object finerBallsCheckBox: TCheckBox
+      AnchorSideLeft.Control = Label3
+      AnchorSideTop.Control = ballSizeTrackBar
+      AnchorSideTop.Side = asrBottom
+      Left = 5
+      Height = 19
+      Top = 72
+      Width = 71
+      Align = alCustom
+      BorderSpacing.Top = 5
+      Caption = 'finer Balls'
+      OnChange = finerBallsCheckBoxChange
+      TabOrder = 2
+    end
+  end
+  object GroupBox2: TGroupBox
+    Left = 0
+    Height = 130
+    Top = 121
+    Width = 320
+    Align = alTop
+    AutoSize = True
+    Caption = 'Simulation'
+    ClientHeight = 110
+    ClientWidth = 316
+    TabOrder = 1
+    object Label4: TLabel
+      AnchorSideLeft.Control = GroupBox2
+      AnchorSideTop.Control = GroupBox2
+      Left = 5
+      Height = 15
+      Top = 0
+      Width = 35
+      Align = alCustom
+      BorderSpacing.Left = 5
+      Caption = 'Speed:'
+      ParentColor = False
+    end
+    object speedTrackBar: TTrackBar
+      AnchorSideTop.Control = GroupBox2
+      AnchorSideRight.Control = GroupBox2
+      AnchorSideRight.Side = asrBottom
+      Left = 104
+      Height = 25
+      Top = 0
+      Width = 212
+      Max = 100
+      Min = -100
+      OnChange = speedTrackBarChange
+      Position = 0
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 0
+    end
+    object Label5: TLabel
+      AnchorSideLeft.Control = Label4
+      AnchorSideTop.Control = switchTimeTrackBar
+      Left = 5
+      Height = 15
+      Top = 25
+      Width = 65
+      Align = alCustom
+      Caption = 'Switch time:'
+      ParentColor = False
+    end
+    object switchTimeTrackBar: TTrackBar
+      AnchorSideLeft.Control = speedTrackBar
+      AnchorSideTop.Control = speedTrackBar
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = GroupBox2
+      AnchorSideRight.Side = asrBottom
+      Left = 104
+      Height = 25
+      Top = 25
+      Width = 212
+      Max = 60000
+      OnChange = switchTimeTrackBarChange
+      Position = 20000
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 1
+    end
+    object switchTimeLabel: TLabel
+      AnchorSideLeft.Control = Label5
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = Label5
+      Left = 76
+      Height = 15
+      Top = 25
+      Width = 17
+      Align = alCustom
+      BorderSpacing.Left = 6
+      Caption = '20s'
+      ParentColor = False
+    end
+    object lockSetupCheckBox: TCheckBox
+      AnchorSideTop.Control = ScenarioProgressBar
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = ScenarioProgressBar
+      AnchorSideRight.Side = asrBottom
+      Left = 236
+      Height = 19
+      Top = 65
+      Width = 74
+      Anchors = [akTop, akRight]
+      BorderSpacing.Top = 3
+      Caption = 'lock setup'
+      OnChange = lockSetupCheckBoxChange
+      TabOrder = 2
+    end
+    object switchSetupButton: TButton
+      AnchorSideLeft.Control = Label6
+      AnchorSideTop.Control = Label6
+      AnchorSideTop.Side = asrBottom
+      AnchorSideBottom.Control = GroupBox2
+      AnchorSideBottom.Side = asrBottom
+      Left = 5
+      Height = 25
+      Top = 85
+      Width = 92
+      Anchors = [akTop, akLeft, akBottom]
+      AutoSize = True
+      BorderSpacing.Top = 5
+      Caption = 'switch setup'
+      OnClick = switchSetupButtonClick
+      TabOrder = 3
+    end
+    object setupComboBox: TComboBox
+      AnchorSideLeft.Control = switchSetupButton
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = switchSetupButton
+      AnchorSideRight.Control = GroupBox2
+      AnchorSideRight.Side = asrBottom
+      AnchorSideBottom.Control = switchSetupButton
+      AnchorSideBottom.Side = asrBottom
+      Left = 97
+      Height = 23
+      Top = 85
+      Width = 219
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight, akBottom]
+      ItemHeight = 15
+      TabOrder = 4
+      Text = 'setupComboBox'
+    end
+    object ScenarioProgressBar: TProgressBar
+      AnchorSideLeft.Control = switchTimeTrackBar
+      AnchorSideTop.Control = switchTimeTrackBar
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = switchTimeTrackBar
+      AnchorSideRight.Side = asrBottom
+      Left = 110
+      Height = 12
+      Top = 50
+      Width = 200
+      Anchors = [akTop, akLeft, akRight]
+      BorderSpacing.Left = 6
+      BorderSpacing.Right = 6
+      Max = 60000
+      TabOrder = 5
+    end
+    object Label6: TLabel
+      AnchorSideLeft.Control = Label4
+      AnchorSideTop.Control = ScenarioProgressBar
+      AnchorSideTop.Side = asrBottom
+      Left = 5
+      Height = 15
+      Top = 65
+      Width = 90
+      Align = alCustom
+      BorderSpacing.Top = 3
+      Caption = 'Current scenario:'
+      ParentColor = False
+    end
+    object currentScenarioLabel: TLabel
+      AnchorSideLeft.Control = Label6
+      AnchorSideLeft.Side = asrBottom
+      AnchorSideTop.Control = Label6
+      Left = 100
+      Height = 15
+      Top = 65
+      Width = 15
+      Align = alCustom
+      BorderSpacing.Left = 5
+      Caption = '---'
+      ParentColor = False
+    end
+  end
+  object updateFPSTimer: TTimer
+    OnTimer = updateFPSTimerTimer
+    Left = 232
+    Top = 56
+  end
+end

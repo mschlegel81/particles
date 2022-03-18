@@ -37,8 +37,6 @@ TYPE
       //Mouse handling
       mouseX,mouseY : longint;
       mouseIsDown   : byte;
-      //Physics time
-      modeTicks     : integer;
 
       PROCEDURE viewMouseDown(Sender: TObject; button: TMouseButton; Shift: TShiftState; X, Y: integer);
       PROCEDURE viewMouseMove(Sender: TObject; Shift: TShiftState; X,Y: integer);
@@ -50,6 +48,8 @@ TYPE
       PROCEDURE setBallSize(CONST value:single);
       PROCEDURE SetfinerBalls(CONST value:boolean);
     public
+      //Physics time
+      modeTicks     : integer;
       ParticleEngine: TParticleEngine;
 
       CONSTRUCTOR create(control:TOpenGLControl);

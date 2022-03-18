@@ -29,7 +29,8 @@ INTERFACE
 USES
   Classes, sysutils, LCLProc, Forms,
   OpenGLContext,Controls,
-  viewWrapper;
+  viewWrapper,
+  settings;
 
 TYPE
   TExampleForm = class(TForm)
@@ -63,7 +64,10 @@ CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
 
     initOpenGlControl;
     viewState:=T_viewState.create(OpenGLControl1);
+    sharedViewState:=viewState;
     FormResize(self);
+    WindowState:=wsFullScreen;
+    BorderStyle:=bsNone;
   end;
 
 DESTRUCTOR TExampleForm.destroy;
@@ -84,25 +88,12 @@ PROCEDURE TExampleForm.initOpenGlControl;
   end;
 
 PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
-  VAR upperLeftOnScreen: TPoint;
-      heightDelta:longint;
   begin
-    if not(biSystemMenu in BorderIcons) then begin
-      SetBounds((screen.width-800) div 2,(screen.height-600) div 2,800,600);
-      BorderIcons:=[biSystemMenu,biMaximize];
-      FormStyle:=fsNormal;
-      //BorderStyle:=bsSizeable;
-      WindowState:=wsNormal;
-    end else begin
-      BorderIcons:=[];
-      FormStyle:=fsStayOnTop;
-      //!Switching BorderStyle breaks OpenGlControl!
-      //BorderStyle:=bsNone;
-      WindowState:=wsMaximized;
-      upperLeftOnScreen:=ClientToScreen(point(0,0));
-      heightDelta:=upperLeftOnScreen.Y-top;
-      top :=top-heightDelta;
-      height:=height+heightDelta;
+    if SettingsForm.showing then SettingsForm.Hide
+    else begin
+      SettingsForm.top:=top;
+      SettingsForm.Left:=Left;
+      SettingsForm.Show;
     end;
   end;
 
@@ -113,6 +104,7 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
 PROCEDURE TExampleForm.IdleFunc(Sender: TObject; VAR done: boolean);
   begin
     if not(Assigned(OpenGLControl1)) then exit;
+    if (SettingsForm<>nil) and SettingsForm.showing then SettingsForm.BringToFront;
     OpenGLControl1.Invalidate;
     done:=false; // tell lcl to handle messages and return immediatly
   end;
@@ -121,6 +113,10 @@ PROCEDURE TExampleForm.FormResize(Sender: TObject);
   begin
     if OpenGLControl1<>nil then
       OpenGLControl1.SetBounds(0, 0, width, height);
+    if (SettingsForm<>nil) and SettingsForm.showing then begin
+      SettingsForm.top:=top;
+      SettingsForm.Left:=Left;
+    end;
   end;
 
 end.

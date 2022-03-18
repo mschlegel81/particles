@@ -65,15 +65,18 @@ TYPE
     PROCEDURE updateA_X1(CONST progress: double);
     PROCEDURE updateA_X2(CONST progress: double);
 
-    PROCEDURE switchAttractionMode;
+    PROCEDURE switchAttractionMode(CONST forcedMode:byte=255);
     PROCEDURE MoveParticles(CONST modeTicks:longint);
 
     FUNCTION capSubSteps(CONST proposedSubSteps:longint):longint;
   public
+    lockCurrentSetup:boolean;
+    MODE_SWITCH_INTERVAL_IN_TICKS:longint;
+    TICKS_PER_SIMULATION_TIME_UNIT:double;
     CONSTRUCTOR create;
     DESTRUCTOR destroy; override;
     FUNCTION update(VAR modeTicks:longint):single;
-    PROCEDURE nextSetup(VAR modeTicks:longint);
+    PROCEDURE nextSetup(VAR modeTicks:longint; CONST forcedMode:byte=255);
     PROCEDURE DrawParticles(CONST ParticleList: GLuint);
     PROPERTY currentAttractionMode:byte read attractionMode;
   end;
@@ -82,7 +85,7 @@ CONST
   GRID_TARGET=6;
   CLOCK_TARGET=20;
   PYRAMID_TARGET=25;
-  MODE_SWITCH_INTERVAL_IN_TICKS=20000;
+
   C_IcosahedronNodes:array[0..11] of TVector3=(
   ( 0, 8.50650808352040E-001, 5.25731112119134E-001),
   ( 5.25731112119134E-001, 0, 8.50650808352040E-001),
@@ -96,12 +99,40 @@ CONST
   ( 5.25731112119134E-001, 0,-8.50650808352040E-001),
   (-5.25731112119134E-001, 0,-8.50650808352040E-001),
   ( 0,-8.50650808352040E-001,-5.25731112119134E-001));
+  ATTRACTION_MODE_COUNT=26;
+
+  ATTRACTION_MODE_NAME:array[0..ATTRACTION_MODE_COUNT-1] of string=
+  ('Cyclic', //0
+   'Cube'  , //1
+   'Sphere', //2
+   'Heart' , //3
+   'Wave'  , //4
+   'Swirl' , //5
+   'Grid'  , //6
+   'Rain'  , //7
+   'Lissajous', //8
+   'Clusters', //9
+   'Flower', //10
+   'Grouped Lissajous', //11
+   'Sliver', //12
+   'Sheet', //13
+   'Fountain', //14
+   'Icosahedron', //15
+   'Grouped Cyclic', //16
+   'Lorenz Attractor', //17
+   'Bi-Cyclic', //18
+   'By Distance', //19
+   'Clock', //20
+   'Thomas Attractor', //21
+   'Knot 1', //22
+   'Knot 2', //23
+   'Mirrored Cyclic', //24
+   'Pyramid');
 
 IMPLEMENTATION
 USES math,sysutils,LCLProc;
 CONST
   WHITE:TVector3=(1,1,1);
-  ATTRACTION_MODE_COUNT=26;
   FIBFAK=2*pi/sqr((sqrt(5)-1)/2);
 
 PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
@@ -162,7 +193,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       then imax:=length(Particle)-1
       else imax:=iMax_;
 
-      updateA(lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS);
+      updateA(min(1,lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS));
       for i:=0 to imax do with Particle[i] do begin
         tmp:=vectors.sumOfSquares(a);
         if (tmp>aMax) and not(isInfinite(tmp)) and not(isNan(tmp)) then aMax:=tmp;
@@ -172,7 +203,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       lastSubSteps:=subSteps;
       dtSub:=dt/subSteps;
       for k:=1 to subSteps do begin
-        if k>1 then updateA((lastModeTicks+dtSub*(k-1)*1000)/MODE_SWITCH_INTERVAL_IN_TICKS);
+        if k>1 then updateA(min(1,(lastModeTicks+dtSub*(k-1)*TICKS_PER_SIMULATION_TIME_UNIT)/MODE_SWITCH_INTERVAL_IN_TICKS));
         for i:=0 to imax do with Particle[i] do begin
           v+=a*dtSub;
           p+=v*dtSub;
@@ -191,12 +222,12 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       then imax:=length(Particle)-1
       else imax:=iMax_;
       for i:=0 to imax do with Particle[i] do begin
-        updateA(lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS,i);
+        updateA(min(1,lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS),i);
         subSteps:=capSubSteps(trunc(euklideanNorm(a)*dt*20));
         totalSubSteps+=subSteps;
         dtSub:=dt/subSteps;
         for k:=1 to subSteps do begin
-          if k>1 then updateA((lastModeTicks+dtSub*(k-1)*1000)/MODE_SWITCH_INTERVAL_IN_TICKS,i);
+          if k>1 then updateA(min(1,(lastModeTicks+dtSub*(k-1)*TICKS_PER_SIMULATION_TIME_UNIT)/MODE_SWITCH_INTERVAL_IN_TICKS),i);
           v+=a*dtSub;
           p+=v*dtSub;
         end;
@@ -354,7 +385,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
 
   begin
     fixBrokenPositions;
-    dt:=(modeTicks-lastModeTicks)*1E-3;
+    dt:=(modeTicks-lastModeTicks)/TICKS_PER_SIMULATION_TIME_UNIT;
     case attractionMode of
       0: begin
         moveTowardsTargets(@updateA_cyclic);
@@ -395,7 +426,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       end;
       10: begin
         moveTowardsTargetsNoninteracting(@updateA_vogler);
-        updateCol_vogler(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS, dt);
+        updateCol_vogler(min(1,modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS), dt);
       end;
       11: begin
         moveTowardsTargets(@updateA_CIRCL);
@@ -475,7 +506,7 @@ PROCEDURE TParticleEngine.updateA_cyclic(CONST progress: double);
      r:=euklideanNorm(targetPosition);
      if      r<0.5 then targetPosition*=0.5/r
      else if r>2   then targetPosition*=2  /r;
-     a:=accel(v,p,targetPosition,50,-50)-p*1E-3;
+     a:=accel(v,p,targetPosition,50,-50)-p*1E-2;
    end;
  end;
 
@@ -529,7 +560,8 @@ PROCEDURE TParticleEngine.updateA_groupedCyclic(CONST progress: double);
    end;
  end;
 
-PROCEDURE TParticleEngine.updateA_cube(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_cube(CONST progress: double;
+  CONST particleIndex: longint);
   CONST C_cubeNodes:array[0..7] of TVector3=((-1,-1,-1),(-1,-1,1),(1,-1,-1),(1,-1,1),(-1,1,-1),(-1,1,1),(1,1,-1),(1,1,1));
         C_cubeTrip1:array[0..7] of longint=(0,1,3,2,6,7,5,4);
         C_cubeTrip2:array[0..7] of longint=(0,2,6,4,5,7,3,1);
@@ -556,7 +588,8 @@ PROCEDURE TParticleEngine.updateA_cube(CONST progress: double; CONST particleInd
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_heart(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_heart(CONST progress: double;
+  CONST particleIndex: longint);
   VAR tau:double;
       tp :TVector3;
   begin
@@ -569,12 +602,14 @@ PROCEDURE TParticleEngine.updateA_heart(CONST progress: double; CONST particleIn
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_sphere(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_sphere(CONST progress: double;
+  CONST particleIndex: longint);
   begin
     with Particle[particleIndex] do a:=accel(v,p,spherePoints[particleIndex]*progress,10,-5);
   end;
 
-PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double;
+  CONST particleIndex: longint);
   FUNCTION accel(CONST v,p:TVector3):TVector3;
     VAR q:TVector3;
         f:double;
@@ -608,7 +643,8 @@ PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double; CONST particleIn
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double;
+  CONST particleIndex: longint);
   CONST C_IcosahedronEdges:array[0..29,0..1] of byte=
     ((8,10),
      (5,7),
@@ -635,7 +671,8 @@ PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double; CONST part
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_wave(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_wave(CONST progress: double;
+  CONST particleIndex: longint);
   VAR r:double;
       targetPosition:TVector3;
   begin
@@ -704,12 +741,14 @@ PROCEDURE TParticleEngine.calculateGridPositions;
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_grid(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_grid(CONST progress: double;
+  CONST particleIndex: longint);
   begin
     with Particle[particleIndex] do a:=accel(v,p,gridPoint[particleIndex]*GRID_SIZE,5,-20);
   end;
 
-PROCEDURE TParticleEngine.updateA_lissajous(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_lissajous(CONST progress: double;
+  CONST particleIndex: longint);
   VAR t,tau:double;
       targetPosition:TVector3;
   begin
@@ -723,7 +762,8 @@ PROCEDURE TParticleEngine.updateA_lissajous(CONST progress: double; CONST partic
      end;
   end;
 
-PROCEDURE TParticleEngine.updateA_vogler(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_vogler(CONST progress: double;
+  CONST particleIndex: longint);
   VAR k:longint;
       targetPosition:TVector3;
 
@@ -1028,7 +1068,8 @@ PROCEDURE TParticleEngine.updateA_X2(CONST progress: double);
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_clock(CONST progress: double; CONST particleIndex:longint);
+PROCEDURE TParticleEngine.updateA_clock(CONST progress: double;
+  CONST particleIndex: longint);
   CONST BAR_POS:array[0..6,0..1] of TVector3=
            (((-0.2 , 0.5 ,0),( 0.2 , 0.5 ,0)),
             ((-0.25, 0.05,0),(-0.25, 0.45,0)),
@@ -1096,6 +1137,10 @@ CONSTRUCTOR TParticleEngine.create;
       accept:boolean;
       temp:TVector3;
   begin
+    MODE_SWITCH_INTERVAL_IN_TICKS:=20000;
+    TICKS_PER_SIMULATION_TIME_UNIT:=1000;
+    lockCurrentSetup:=false;
+
     spherePoints[0]:=randomOnSphere;
     for i:=1 to length(spherePoints)-1 do begin
       repeat
@@ -1140,18 +1185,18 @@ FUNCTION TParticleEngine.update(VAR modeTicks: longint): single;
     if modeTicks<=lastModeTicks then modeTicks:=lastModeTicks+1;
     result:=(modeTicks-lastModeTicks)*1E-3; //approximate dt in seconds
     MoveParticles(modeTicks);
-    if modeTicks>MODE_SWITCH_INTERVAL_IN_TICKS then begin
+    if (modeTicks>MODE_SWITCH_INTERVAL_IN_TICKS) and not(lockCurrentSetup) then begin
       switchAttractionMode;
-      modeTicks-=MODE_SWITCH_INTERVAL_IN_TICKS;
-      lastModeTicks:=modeTicks;
+      modeTicks    :=0;
+      lastModeTicks:=0;
     end;
   end;
 
-PROCEDURE TParticleEngine.nextSetup(VAR modeTicks: longint);
+PROCEDURE TParticleEngine.nextSetup(VAR modeTicks: longint; CONST forcedMode:byte=255);
   begin
     modeTicks:=0;
     lastModeTicks:=0;
-    switchAttractionMode;
+    switchAttractionMode(forcedMode);
   end;
 
 PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint);
@@ -1166,7 +1211,7 @@ PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint);
     end;
   end;
 
-PROCEDURE TParticleEngine.switchAttractionMode;
+PROCEDURE TParticleEngine.switchAttractionMode(CONST forcedMode:byte=255);
   PROCEDURE prepareForPyramid;
     VAR i:longint;
     begin
@@ -1184,7 +1229,9 @@ PROCEDURE TParticleEngine.switchAttractionMode;
       i,k:longint;
 
   begin
-    repeat m:=random(ATTRACTION_MODE_COUNT) until m<>attractionMode;
+    if forcedMode<ATTRACTION_MODE_COUNT
+    then m:=forcedMode
+    else repeat m:=random(ATTRACTION_MODE_COUNT) until m<>attractionMode;
 
     lissajousParam[0]:=1+random(16);
     lissajousParam[1]:=1+random(16);
