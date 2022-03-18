@@ -89,22 +89,18 @@ PROCEDURE TExampleForm.initOpenGlControl;
 
 PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
   begin
-    if SettingsForm.showing then SettingsForm.Hide
+    if isSettingsFormShowing then getSettingsForm.Hide
     else begin
-      SettingsForm.top:=top;
-      SettingsForm.Left:=Left;
-      SettingsForm.Show;
+      getSettingsForm.top:=top;
+      getSettingsForm.Left:=Left;
+      getSettingsForm.Show;
     end;
   end;
-
-// ---------------------------------------------------------------------------
-// +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-// ---------------------------------------------------------------------------
 
 PROCEDURE TExampleForm.IdleFunc(Sender: TObject; VAR done: boolean);
   begin
     if not(Assigned(OpenGLControl1)) then exit;
-    if (SettingsForm<>nil) and SettingsForm.showing then SettingsForm.BringToFront;
+    if isSettingsFormShowing then getSettingsForm.BringToFront;
     OpenGLControl1.Invalidate;
     done:=false; // tell lcl to handle messages and return immediatly
   end;
@@ -113,9 +109,9 @@ PROCEDURE TExampleForm.FormResize(Sender: TObject);
   begin
     if OpenGLControl1<>nil then
       OpenGLControl1.SetBounds(0, 0, width, height);
-    if (SettingsForm<>nil) and SettingsForm.showing then begin
-      SettingsForm.top:=top;
-      SettingsForm.Left:=Left;
+    if isSettingsFormShowing then begin
+      getSettingsForm.top:=top;
+      getSettingsForm.Left:=Left;
     end;
   end;
 

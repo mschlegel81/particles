@@ -17,7 +17,9 @@ TYPE
   T_viewState=class
     private
       //OpenGL variables
-      lightamb, lightdif, lightpos: array [0..3] of GLfloat;
+      lightamb,
+      lightdif,
+      lightpos: array [0..3] of GLfloat;
       ParticleList: GLuint;
       OpenGLControl: TOpenGLControl;
       AreaInitialized: boolean;
@@ -80,6 +82,17 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
     OpenGLControl.OnResize   :=@viewResize;
     OpenGLControl.OnPaint    :=@viewPaint;
 
+    {ambient color}
+    lightamb[0]:=0.2;
+    lightamb[1]:=0.2;
+    lightamb[2]:=0.2;
+    lightamb[3]:=1.0;
+    {diffuse color}
+    lightdif[0]:=1;
+    lightdif[1]:=1;
+    lightdif[2]:=1;
+    lightdif[3]:=1.0;
+
     setTargetFPS(60);
     finerBalls_:=false;
     ballSize_:=0.013;
@@ -140,17 +153,6 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       //if GLInitialized then exit;
       //GLInitialized:=true;
 
-      {setting lighting conditions}
-      {ambient color}
-      lightamb[0]:=0.2;
-      lightamb[1]:=0.2;
-      lightamb[2]:=0.2;
-      lightamb[3]:=1.0;
-      {diffuse color}
-      lightdif[0]:=1;
-      lightdif[1]:=1;
-      lightdif[2]:=1;
-      lightdif[3]:=1.0;
       {diffuse position}
       n:=vectorOf(1,2,0); n*=1/euklideanNorm(n);
       lightpos[0]:=n[0];
@@ -172,7 +174,9 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glShadeModel(GL_SMOOTH);          // enables smooth color shading
       glColor4f(0.7,0.7,0.7,1.0);
       glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
       glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
+
       glHint(GL_PERSPECTIVE_CORRECTION_HINT,GL_NICEST);
       glEnable( GL_BLEND );
       glEnable(GL_COLOR_MATERIAL);
@@ -222,6 +226,7 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       AreaInitialized:=true;
     end;
 
+  CONST specular_white:array[0..3] of GLfloat=(1,1,1,1);
   CONST az=1;
   VAR ax:double=az;
       ay:double=az;
@@ -278,6 +283,9 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       //Draw
       glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
       glEnable(GL_BLEND);
+
+      //glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
+      //glMaterialf(GL_FRONT, GL_SHININESS, 80.0);
       ParticleEngine.DrawParticles(ParticleList);
       glDisable(GL_BLEND);
       glPopMatrix;

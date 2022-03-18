@@ -52,10 +52,21 @@ TYPE
 
   end;
 
-VAR
-  SettingsForm: TSettingsForm;
-  sharedViewState:T_viewState;
+VAR sharedViewState:T_viewState;
+FUNCTION getSettingsForm:TSettingsForm;
+FUNCTION isSettingsFormShowing:boolean;
 IMPLEMENTATION
+VAR SettingsForm: TSettingsForm=nil;
+FUNCTION getSettingsForm:TSettingsForm;
+  begin
+    if SettingsForm=nil then SettingsForm:=TSettingsForm.Create(nil);
+    result:=SettingsForm;
+  end;
+
+FUNCTION isSettingsFormShowing:boolean;
+  begin
+    result:=(SettingsForm<>nil) and (SettingsForm.Showing);
+  end;
 
 { TSettingsForm }
 
@@ -112,7 +123,8 @@ PROCEDURE TSettingsForm.switchSetupButtonClick(Sender: TObject);
 
 PROCEDURE TSettingsForm.switchTimeTrackBarChange(Sender: TObject);
   begin
-    sharedViewState.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS:=switchTimeTrackBar.position;
+    sharedViewState.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS:=switchTimeTrackBar.position*100;
+    switchTimeLabel.Caption:=formatFloat('00.0',switchTimeTrackBar.position*0.1)+'s';
   end;
 
 PROCEDURE TSettingsForm.updateFPSTimerTimer(Sender: TObject);
@@ -124,6 +136,9 @@ PROCEDURE TSettingsForm.updateFPSTimerTimer(Sender: TObject);
 
 INITIALIZATION
   {$I settings.lrs}
+
+finalization
+  if SettingsForm<>nil then FreeAndNil(SettingsForm);
 
 end.
 

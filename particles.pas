@@ -29,6 +29,5 @@ USES
 begin
   Application.initialize;
   Application.CreateForm(TExampleForm, AnExampleForm);
-  Application.CreateForm(TSettingsForm, SettingsForm);
   Application.run;
 end.

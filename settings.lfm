@@ -1,15 +1,15 @@
 object SettingsForm: TSettingsForm
-  Left = 786
+  Left = 354
   Height = 284
-  Top = 180
+  Top = 213
   Width = 320
   AlphaBlend = True
-  AlphaBlendValue = 128
+  AlphaBlendValue = 200
   BorderStyle = bsNone
   Caption = 'Particles'
   ClientHeight = 284
   ClientWidth = 320
-  Color = clBlue
+  Color = clPurple
   Font.CharSet = ANSI_CHARSET
   Font.Color = clWhite
   Font.Height = -12
@@ -23,12 +23,12 @@ object SettingsForm: TSettingsForm
   LCLVersion = '2.0.12.0'
   object GroupBox1: TGroupBox
     Left = 0
-    Height = 121
+    Height = 224
     Top = 0
     Width = 320
     Align = alTop
     Caption = 'Display'
-    ClientHeight = 101
+    ClientHeight = 204
     ClientWidth = 316
     TabOrder = 0
     object Label1: TLabel
@@ -143,7 +143,7 @@ object SettingsForm: TSettingsForm
   object GroupBox2: TGroupBox
     Left = 0
     Height = 130
-    Top = 121
+    Top = 224
     Width = 320
     Align = alTop
     AutoSize = True
@@ -174,6 +174,7 @@ object SettingsForm: TSettingsForm
       Max = 100
       Min = -100
       OnChange = speedTrackBarChange
+      PageSize = 10
       Position = 0
       Align = alCustom
       Anchors = [akTop, akLeft, akRight]
@@ -200,9 +201,11 @@ object SettingsForm: TSettingsForm
       Height = 25
       Top = 25
       Width = 212
-      Max = 60000
+      Frequency = 1000
+      Max = 600
       OnChange = switchTimeTrackBarChange
-      Position = 20000
+      PageSize = 20
+      Position = 200
       Align = alCustom
       Anchors = [akTop, akLeft, akRight]
       TabOrder = 1
@@ -249,6 +252,7 @@ object SettingsForm: TSettingsForm
       AutoSize = True
       BorderSpacing.Top = 5
       Caption = 'switch setup'
+      Color = clBlack
       OnClick = switchSetupButtonClick
       TabOrder = 3
     end
@@ -266,6 +270,7 @@ object SettingsForm: TSettingsForm
       Width = 219
       Align = alCustom
       Anchors = [akTop, akLeft, akRight, akBottom]
+      Color = clBlack
       ItemHeight = 15
       TabOrder = 4
       Text = 'setupComboBox'
@@ -314,6 +319,7 @@ object SettingsForm: TSettingsForm
     end
   end
   object updateFPSTimer: TTimer
+    Interval = 500
     OnTimer = updateFPSTimerTimer
     Left = 232
     Top = 56
