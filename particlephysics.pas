@@ -481,7 +481,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
   end;
 
 FUNCTION TParticleEngine.capSubSteps(CONST proposedSubSteps: longint): longint;
-  CONST HARD_UPPER_BOUND=100;
+  CONST HARD_UPPER_BOUND=500;
         HARD_LOWER_BOUND=1;
   begin
     if      proposedSubSteps<HARD_LOWER_BOUND then result:=HARD_LOWER_BOUND

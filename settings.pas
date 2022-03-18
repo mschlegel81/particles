@@ -13,6 +13,7 @@ TYPE
   { TSettingsForm }
 
   TSettingsForm = class(TForm)
+    flatShadingCheckBox: TCheckBox;
     Label6: TLabel;
     currentScenarioLabel: TLabel;
     Label7: TLabel;
@@ -41,12 +42,13 @@ TYPE
     updateFPSTimer: TTimer;
     PROCEDURE ballSizeTrackBarChange(Sender: TObject);
     PROCEDURE finerBallsCheckBoxChange(Sender: TObject);
+    PROCEDURE flatShadingCheckBoxChange(Sender: TObject);
     PROCEDURE FormCreate(Sender: TObject);
     PROCEDURE FormDestroy(Sender: TObject);
     PROCEDURE FormResize(Sender: TObject);
     PROCEDURE fpsTrackBarChange(Sender: TObject);
-    procedure light1TrackBarChange(Sender: TObject);
-    procedure light2TrackBarChange(Sender: TObject);
+    PROCEDURE light1TrackBarChange(Sender: TObject);
+    PROCEDURE light2TrackBarChange(Sender: TObject);
     PROCEDURE lockSetupCheckBoxChange(Sender: TObject);
     PROCEDURE speedTrackBarChange(Sender: TObject);
     PROCEDURE switchSetupButtonClick(Sender: TObject);
@@ -65,13 +67,13 @@ IMPLEMENTATION
 VAR SettingsForm: TSettingsForm=nil;
 FUNCTION getSettingsForm:TSettingsForm;
   begin
-    if SettingsForm=nil then SettingsForm:=TSettingsForm.Create(nil);
+    if SettingsForm=nil then SettingsForm:=TSettingsForm.create(nil);
     result:=SettingsForm;
   end;
 
 FUNCTION isSettingsFormShowing:boolean;
   begin
-    result:=(SettingsForm<>nil) and (SettingsForm.Showing);
+    result:=(SettingsForm<>nil) and (SettingsForm.showing);
   end;
 
 { TSettingsForm }
@@ -86,12 +88,19 @@ PROCEDURE TSettingsForm.FormCreate(Sender: TObject);
 
 PROCEDURE TSettingsForm.ballSizeTrackBarChange(Sender: TObject);
   begin
-    sharedViewState.ballSize:=0.001*ballSizeTrackBar.position;
+    //range: 0.001 - 0.2
+
+    sharedViewState.ballSize:=0.01*exp(ln(0.2/0.01)*ballSizeTrackBar.position/ballSizeTrackBar.max);
   end;
 
 PROCEDURE TSettingsForm.finerBallsCheckBoxChange(Sender: TObject);
   begin
     sharedViewState.finerBalls:=finerBallsCheckBox.checked;
+  end;
+
+PROCEDURE TSettingsForm.flatShadingCheckBoxChange(Sender: TObject);
+  begin
+    sharedViewState.flatShading:=flatShadingCheckBox.checked;
   end;
 
 PROCEDURE TSettingsForm.FormDestroy(Sender: TObject);
@@ -110,15 +119,15 @@ PROCEDURE TSettingsForm.fpsTrackBarChange(Sender: TObject);
     fpsTargetLabel.caption:=intToStr(sharedViewState.targetFPS);
   end;
 
-procedure TSettingsForm.light1TrackBarChange(Sender: TObject);
-begin
+PROCEDURE TSettingsForm.light1TrackBarChange(Sender: TObject);
+  begin
+    sharedViewState.light1Brightness:=light1TrackBar.position/255;
+  end;
 
-end;
-
-procedure TSettingsForm.light2TrackBarChange(Sender: TObject);
-begin
-
-end;
+PROCEDURE TSettingsForm.light2TrackBarChange(Sender: TObject);
+  begin
+    sharedViewState.light2Brightness:=light2TrackBar.position/255;
+  end;
 
 PROCEDURE TSettingsForm.lockSetupCheckBoxChange(Sender: TObject);
   begin
@@ -140,7 +149,7 @@ PROCEDURE TSettingsForm.switchSetupButtonClick(Sender: TObject);
 PROCEDURE TSettingsForm.switchTimeTrackBarChange(Sender: TObject);
   begin
     sharedViewState.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS:=switchTimeTrackBar.position*100;
-    switchTimeLabel.Caption:=formatFloat('00.0',switchTimeTrackBar.position*0.1)+'s';
+    switchTimeLabel.caption:=formatFloat('00.0',switchTimeTrackBar.position*0.1)+'s';
   end;
 
 PROCEDURE TSettingsForm.updateFPSTimerTimer(Sender: TObject);
@@ -153,7 +162,7 @@ PROCEDURE TSettingsForm.updateFPSTimerTimer(Sender: TObject);
 INITIALIZATION
   {$I settings.lrs}
 
-finalization
+FINALIZATION
   if SettingsForm<>nil then FreeAndNil(SettingsForm);
 
 end.

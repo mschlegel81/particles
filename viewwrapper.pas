@@ -23,6 +23,7 @@ TYPE
       ParticleList: GLuint;
       OpenGLControl: TOpenGLControl;
       AreaInitialized: boolean;
+      flatShading_:boolean;
       //View rotation:
       rx,ry: single;
 
@@ -49,6 +50,11 @@ TYPE
       PROCEDURE setTargetFPS(CONST value:longint);
       PROCEDURE setBallSize(CONST value:single);
       PROCEDURE SetfinerBalls(CONST value:boolean);
+      FUNCTION getLight1Brightness:TGLfloat;
+      PROCEDURE setLight1Brightness(CONST value:TGLfloat);
+      FUNCTION getLight2Brightness:TGLfloat;
+      PROCEDURE setLight2Brightness(CONST value:TGLfloat);
+      PROCEDURE setFlatShading(CONST value:boolean);
     public
       //Physics time
       modeTicks     : integer;
@@ -60,6 +66,9 @@ TYPE
       PROPERTY ballSize:single read ballSize_ write setBallSize;
       PROPERTY finerBalls:boolean read finerBalls_ write SetfinerBalls;
       PROPERTY getFps:double read measuredFps;
+      PROPERTY light1Brightness:TGLfloat read getLight1Brightness write setLight1Brightness;
+      PROPERTY light2Brightness:TGLfloat read getLight2Brightness write setLight2Brightness;
+      PROPERTY flatShading:boolean read flatShading_ write setFlatShading;
   end;
 
 IMPLEMENTATION
@@ -86,19 +95,21 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
     lightamb[0]:=0.2;
     lightamb[1]:=0.2;
     lightamb[2]:=0.2;
-    lightamb[3]:=1.0;
+    lightamb[3]:=0.0;
     {diffuse color}
     lightdif[0]:=1;
     lightdif[1]:=1;
     lightdif[2]:=1;
-    lightdif[3]:=1.0;
+    lightdif[3]:=0.0;
 
     setTargetFPS(60);
     finerBalls_:=false;
     ballSize_:=0.013;
+    flatShading_:=false;
   end;
 
-PROCEDURE T_viewState.viewMouseDown(Sender: TObject; button: TMouseButton; Shift: TShiftState; X, Y: integer);
+PROCEDURE T_viewState.viewMouseDown(Sender: TObject; button: TMouseButton;
+  Shift: TShiftState; X, Y: integer);
   begin
     mouseX:=x;
     mouseY:=y;
@@ -108,7 +119,8 @@ PROCEDURE T_viewState.viewMouseDown(Sender: TObject; button: TMouseButton; Shift
     end;
   end;
 
-PROCEDURE T_viewState.viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: integer);
+PROCEDURE T_viewState.viewMouseMove(Sender: TObject; Shift: TShiftState; X,
+  Y: integer);
   begin
     if mouseIsDown<>1 then exit;
     ry+=(x-mouseX)/OpenGLControl.width*180;
@@ -117,7 +129,8 @@ PROCEDURE T_viewState.viewMouseMove(Sender: TObject; Shift: TShiftState; X, Y: i
     mouseY:=y;
   end;
 
-PROCEDURE T_viewState.viewMouseUp(Sender: TObject; button: TMouseButton; Shift: TShiftState; X, Y: integer);
+PROCEDURE T_viewState.viewMouseUp(Sender: TObject; button: TMouseButton;
+  Shift: TShiftState; X, Y: integer);
   begin
     if mouseIsDown=2 then ParticleEngine.nextSetup(modeTicks);
     mouseIsDown:=0;
@@ -145,10 +158,10 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
        //  / \   / \
        // /   \ /   \
        //0-----3-----1
-       FINER_NODE:array[0..11] of byte = (0,3,5,3,1,4,3,4,5,5,4,2);
+       FINER_NODE:array[0..3,0..2] of byte = ((0,3,5),(3,1,4),(3,4,5),(5,4,2));
     VAR p:array[0..5] of TVector3;
-        n:TVector3;
-        i,j:longint;
+        n,commonNormal:TVector3;
+        i,j,k:longint;
     begin
       //if GLInitialized then exit;
       //GLInitialized:=true;
@@ -161,27 +174,32 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       lightpos[3]:=0.0;
 
       glLightfv(GL_LIGHT0,GL_AMBIENT ,lightamb);
+      if lightamb[0]>0
+      then glEnable (GL_LIGHT0)
+      else glDisable(GL_LIGHT0);
+
       glLightfv(GL_LIGHT1,GL_DIFFUSE ,lightdif);
       glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
-
-      glEnable(GL_LIGHT0);
-      glEnable(GL_LIGHT1);
+      if lightdif[0]>0
+      then glEnable (GL_LIGHT1)
+      else glDisable(GL_LIGHT1);
 
       glClearColor(0.0,0.0,0.0,0.1);    // sets background color
       glClearDepth(1.0);
       glDepthFunc(GL_LEQUAL);           // the type of depth test to do
       glEnable(GL_DEPTH_TEST);          // enables depth testing
-      glShadeModel(GL_SMOOTH);          // enables smooth color shading
-      glColor4f(0.7,0.7,0.7,1.0);
+      if flatShading_
+      then glShadeModel(GL_FLAT)
+      else glShadeModel(GL_SMOOTH);
       glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 
+      //glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
       glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
 
       glHint(GL_PERSPECTIVE_CORRECTION_HINT,GL_NICEST);
       glEnable( GL_BLEND );
       glEnable(GL_COLOR_MATERIAL);
       glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
-      glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
 
       ParticleList:=glGenLists(1);
 
@@ -197,17 +215,29 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
               p[4]:=p[1]+p[2];
               p[5]:=p[2]+p[0];
               for j:=0 to 5 do p[j]*=1/euklideanNorm(p[j]);
-              for j:=0 to 11 do begin
-                n:=p[FINER_NODE[j]];
-                glNormal3f(n[0],n[1],n[2]);
-                n*=ballSize_;
-                glVertex3f(n[0],n[1],n[2]);
+              for j:=0 to 3 do begin
+                commonNormal:=p[FINER_NODE[j,0]]+p[FINER_NODE[j,1]]+p[FINER_NODE[j,2]];
+                commonNormal*=1/euklideanNorm(commonNormal);
+                for k:=0 to 2 do begin
+                  n:=p[FINER_NODE[j,k]];
+                  if flatShading_
+                  then glNormal3f(commonNormal[0],commonNormal[1],commonNormal[2])
+                  else glNormal3f(n[0],n[1],n[2]);
+                  n*=ballSize_;
+                  glVertex3f(n[0],n[1],n[2]);
+                end;
               end;
             end else begin
+              commonNormal:=C_IcosahedronNodes[C_icosahedronFaces[i,0]]+
+                            C_IcosahedronNodes[C_icosahedronFaces[i,1]]+
+                            C_IcosahedronNodes[C_icosahedronFaces[i,2]];
+              commonNormal*=1/euklideanNorm(commonNormal);
               for j:=0 to 2 do begin
                 n:=C_IcosahedronNodes[C_icosahedronFaces[i,j]];
                 n*=1/euklideanNorm(n);
-                glNormal3f(n[0],n[1],n[2]);
+                if flatShading_
+                then glNormal3f(commonNormal[0],commonNormal[1],commonNormal[2])
+                else glNormal3f(n[0],n[1],n[2]);
                 n*=ballSize_;
                 glVertex3f(n[0],n[1],n[2]);
               end;
@@ -281,11 +311,13 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glRotatef(rx,0.1,0.0,0.0);
       glRotatef(ry,0.0,1.0,0.0);
       //Draw
+      glLightfv(GL_LIGHT0,GL_POSITION,lightpos);
       glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
       glEnable(GL_BLEND);
-
-      //glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
-      //glMaterialf(GL_FRONT, GL_SHININESS, 80.0);
+//      glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
+      glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE);
+      glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
+      glMaterialf(GL_FRONT, GL_SHININESS, 40.0);
       ParticleEngine.DrawParticles(ParticleList);
       glDisable(GL_BLEND);
       glPopMatrix;
@@ -307,10 +339,42 @@ PROCEDURE T_viewState.setBallSize(CONST value: single);
     AreaInitialized:=false;
   end;
 
-PROCEDURE T_viewState.setFinerBalls(CONST value: boolean);
+PROCEDURE T_viewState.SetfinerBalls(CONST value: boolean);
   begin
     if value=finerBalls_ then exit;
     finerBalls_:=value;
+    AreaInitialized:=false;
+  end;
+
+FUNCTION T_viewState.getLight1Brightness: TGLfloat;
+  begin
+    result:=lightamb[0];
+  end;
+
+PROCEDURE T_viewState.setLight1Brightness(CONST value: TGLfloat);
+  begin
+    lightamb[0]:=value;
+    lightamb[1]:=value;
+    lightamb[2]:=value;
+    AreaInitialized:=false;
+  end;
+
+FUNCTION T_viewState.getLight2Brightness: TGLfloat;
+  begin
+    result:=lightdif[0];
+  end;
+
+PROCEDURE T_viewState.setLight2Brightness(CONST value: TGLfloat);
+  begin
+    lightdif[0]:=value;
+    lightdif[1]:=value;
+    lightdif[2]:=value;
+    AreaInitialized:=false;
+  end;
+
+PROCEDURE T_viewState.setFlatShading(CONST value: boolean);
+  begin
+    flatShading_:=value;
     AreaInitialized:=false;
   end;
 
