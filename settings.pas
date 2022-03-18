@@ -15,6 +15,9 @@ TYPE
   TSettingsForm = class(TForm)
     Label6: TLabel;
     currentScenarioLabel: TLabel;
+    Label7: TLabel;
+    Label8: TLabel;
+    light2TrackBar: TTrackBar;
     setupComboBox: TComboBox;
     ScenarioProgressBar: TProgressBar;
     switchSetupButton: TButton;
@@ -34,6 +37,7 @@ TYPE
     switchTimeLabel: TLabel;
     speedTrackBar: TTrackBar;
     switchTimeTrackBar: TTrackBar;
+    light1TrackBar: TTrackBar;
     updateFPSTimer: TTimer;
     PROCEDURE ballSizeTrackBarChange(Sender: TObject);
     PROCEDURE finerBallsCheckBoxChange(Sender: TObject);
@@ -41,6 +45,8 @@ TYPE
     PROCEDURE FormDestroy(Sender: TObject);
     PROCEDURE FormResize(Sender: TObject);
     PROCEDURE fpsTrackBarChange(Sender: TObject);
+    procedure light1TrackBarChange(Sender: TObject);
+    procedure light2TrackBarChange(Sender: TObject);
     PROCEDURE lockSetupCheckBoxChange(Sender: TObject);
     PROCEDURE speedTrackBarChange(Sender: TObject);
     PROCEDURE switchSetupButtonClick(Sender: TObject);
@@ -103,6 +109,16 @@ PROCEDURE TSettingsForm.fpsTrackBarChange(Sender: TObject);
     sharedViewState.targetFPS:=fpsTrackBar.position;
     fpsTargetLabel.caption:=intToStr(sharedViewState.targetFPS);
   end;
+
+procedure TSettingsForm.light1TrackBarChange(Sender: TObject);
+begin
+
+end;
+
+procedure TSettingsForm.light2TrackBarChange(Sender: TObject);
+begin
+
+end;
 
 PROCEDURE TSettingsForm.lockSetupCheckBoxChange(Sender: TObject);
   begin

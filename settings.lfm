@@ -1,13 +1,13 @@
 object SettingsForm: TSettingsForm
   Left = 354
-  Height = 284
+  Height = 295
   Top = 213
   Width = 320
   AlphaBlend = True
   AlphaBlendValue = 200
   BorderStyle = bsNone
   Caption = 'Particles'
-  ClientHeight = 284
+  ClientHeight = 295
   ClientWidth = 320
   Color = clPurple
   Font.CharSet = ANSI_CHARSET
@@ -23,12 +23,13 @@ object SettingsForm: TSettingsForm
   LCLVersion = '2.0.12.0'
   object GroupBox1: TGroupBox
     Left = 0
-    Height = 224
+    Height = 166
     Top = 0
     Width = 320
     Align = alTop
+    AutoSize = True
     Caption = 'Display'
-    ClientHeight = 204
+    ClientHeight = 146
     ClientWidth = 316
     TabOrder = 0
     object Label1: TLabel
@@ -139,11 +140,73 @@ object SettingsForm: TSettingsForm
       OnChange = finerBallsCheckBoxChange
       TabOrder = 2
     end
+    object Label7: TLabel
+      AnchorSideLeft.Control = finerBallsCheckBox
+      AnchorSideTop.Control = finerBallsCheckBox
+      AnchorSideTop.Side = asrBottom
+      Left = 5
+      Height = 15
+      Top = 96
+      Width = 39
+      Align = alCustom
+      BorderSpacing.Top = 5
+      Caption = 'Light 1:'
+      ParentColor = False
+    end
+    object light1TrackBar: TTrackBar
+      AnchorSideLeft.Control = ballSizeTrackBar
+      AnchorSideTop.Control = Label7
+      AnchorSideRight.Control = ballSizeTrackBar
+      AnchorSideRight.Side = asrBottom
+      Left = 104
+      Height = 25
+      Top = 96
+      Width = 212
+      Frequency = 16
+      Max = 255
+      OnChange = light1TrackBarChange
+      PageSize = 16
+      Position = 0
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 3
+    end
+    object Label8: TLabel
+      AnchorSideLeft.Control = Label7
+      AnchorSideLeft.Side = asrCenter
+      AnchorSideTop.Control = light2TrackBar
+      Left = 5
+      Height = 15
+      Top = 121
+      Width = 39
+      Align = alCustom
+      Caption = 'Light 2:'
+      ParentColor = False
+    end
+    object light2TrackBar: TTrackBar
+      AnchorSideLeft.Control = light1TrackBar
+      AnchorSideTop.Control = light1TrackBar
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = light1TrackBar
+      AnchorSideRight.Side = asrBottom
+      Left = 104
+      Height = 25
+      Top = 121
+      Width = 212
+      Frequency = 16
+      Max = 255
+      OnChange = light2TrackBarChange
+      PageSize = 16
+      Position = 0
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 4
+    end
   end
   object GroupBox2: TGroupBox
     Left = 0
     Height = 130
-    Top = 224
+    Top = 166
     Width = 320
     Align = alTop
     AutoSize = True
