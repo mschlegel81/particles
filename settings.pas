@@ -6,13 +6,14 @@ INTERFACE
 
 USES
   Classes, sysutils, LResources, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  ComCtrls, ExtCtrls,viewWrapper,particlePhysics;
+  ComCtrls, ExtCtrls,viewWrapper,particlePhysics,Process;
 
 TYPE
 
   { TSettingsForm }
 
   TSettingsForm = class(TForm)
+    RestartButton: TButton;
     flatShadingCheckBox: TCheckBox;
     Label6: TLabel;
     currentScenarioLabel: TLabel;
@@ -50,6 +51,7 @@ TYPE
     PROCEDURE light1TrackBarChange(Sender: TObject);
     PROCEDURE light2TrackBarChange(Sender: TObject);
     PROCEDURE lockSetupCheckBoxChange(Sender: TObject);
+    PROCEDURE RestartButtonClick(Sender: TObject);
     PROCEDURE speedTrackBarChange(Sender: TObject);
     PROCEDURE switchSetupButtonClick(Sender: TObject);
     PROCEDURE switchTimeTrackBarChange(Sender: TObject);
@@ -61,6 +63,7 @@ TYPE
   end;
 
 VAR sharedViewState:T_viewState;
+    currentlyWindowed:boolean;
 FUNCTION getSettingsForm:TSettingsForm;
 FUNCTION isSettingsFormShowing:boolean;
 IMPLEMENTATION
@@ -84,6 +87,10 @@ PROCEDURE TSettingsForm.FormCreate(Sender: TObject);
     setupComboBox.items.clear;
     for i:=0 to ATTRACTION_MODE_COUNT-1 do setupComboBox.items.add(ATTRACTION_MODE_NAME[i]);
     setupComboBox.items.add('<random>');
+
+    if currentlyWindowed
+    then RestartButton.caption:='Restart in fullscreen mode'
+    else RestartButton.caption:='Restart in windowed mode';
   end;
 
 PROCEDURE TSettingsForm.ballSizeTrackBarChange(Sender: TObject);
@@ -132,6 +139,18 @@ PROCEDURE TSettingsForm.light2TrackBarChange(Sender: TObject);
 PROCEDURE TSettingsForm.lockSetupCheckBoxChange(Sender: TObject);
   begin
     sharedViewState.ParticleEngine.lockCurrentSetup:=lockSetupCheckBox.checked;
+  end;
+
+PROCEDURE TSettingsForm.RestartButtonClick(Sender: TObject);
+  VAR Process:TProcess;
+  begin
+    Process:=TProcess.create(self);
+    Process.options:=[poDetached];
+//                    poNoConsole,poNewConsole,
+    Process.executable:=paramStr(0);
+    if not(currentlyWindowed) then Process.parameters.add('-windowed');
+    Process.execute;
+    halt;
   end;
 
 PROCEDURE TSettingsForm.speedTrackBarChange(Sender: TObject);

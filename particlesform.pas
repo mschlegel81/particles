@@ -66,8 +66,14 @@ CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
     viewState:=T_viewState.create(OpenGLControl1);
     sharedViewState:=viewState;
     FormResize(self);
-    WindowState:=wsFullScreen;
-    BorderStyle:=bsNone;
+
+    if (paramCount>=1) and (paramStr(1)='-windowed') then begin
+      currentlyWindowed:=true;
+    end else begin
+      currentlyWindowed:=false;
+      WindowState:=wsFullScreen;
+      BorderStyle:=bsNone;
+    end;
   end;
 
 DESTRUCTOR TExampleForm.destroy;
@@ -100,7 +106,13 @@ PROCEDURE TExampleForm.OpenGlControl1DblClick(Sender: TObject);
 PROCEDURE TExampleForm.IdleFunc(Sender: TObject; VAR done: boolean);
   begin
     if not(Assigned(OpenGLControl1)) then exit;
-    if isSettingsFormShowing then getSettingsForm.BringToFront;
+    if isSettingsFormShowing then begin
+      if currentlyWindowed and ((getSettingsForm.top<>top) or (getSettingsForm.Left<>Left)) then begin
+        getSettingsForm.top:=top;
+        getSettingsForm.Left:=Left;
+      end;
+      getSettingsForm.BringToFront;
+    end;
     OpenGLControl1.Invalidate;
     done:=false; // tell lcl to handle messages and return immediatly
   end;
