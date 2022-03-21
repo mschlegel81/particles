@@ -27,8 +27,9 @@ TYPE
       //View rotation:
       rx,ry: single;
 
-      finerBalls_:boolean;
+      ballRefinement_:byte;
       ballSize_:single;
+      hemispheres_:boolean;
 
       //Frame rate control
       frameCount    : integer;
@@ -49,12 +50,13 @@ TYPE
 
       PROCEDURE setTargetFPS(CONST value:longint);
       PROCEDURE setBallSize(CONST value:single);
-      PROCEDURE SetfinerBalls(CONST value:boolean);
+      PROCEDURE setBallRefinement(CONST value:byte);
       FUNCTION getLight1Brightness:TGLfloat;
       PROCEDURE setLight1Brightness(CONST value:TGLfloat);
       FUNCTION getLight2Brightness:TGLfloat;
       PROCEDURE setLight2Brightness(CONST value:TGLfloat);
       PROCEDURE setFlatShading(CONST value:boolean);
+      PROCEDURE setHemispheres(CONST value:boolean);
     public
       //Physics time
       modeTicks     : integer;
@@ -64,11 +66,12 @@ TYPE
 
       PROPERTY targetFPS:longint read TARGET_FPS write setTargetFPS;
       PROPERTY ballSize:single read ballSize_ write setBallSize;
-      PROPERTY finerBalls:boolean read finerBalls_ write SetfinerBalls;
+      PROPERTY ballRefinement:byte read ballRefinement_ write setBallRefinement;
       PROPERTY getFps:double read measuredFps;
       PROPERTY light1Brightness:TGLfloat read getLight1Brightness write setLight1Brightness;
       PROPERTY light2Brightness:TGLfloat read getLight2Brightness write setLight2Brightness;
       PROPERTY flatShading:boolean read flatShading_ write setFlatShading;
+      PROPERTY hemispheres:boolean read hemispheres_ write setHemispheres;
   end;
 
 IMPLEMENTATION
@@ -103,9 +106,10 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
     lightdif[3]:=0.0;
 
     setTargetFPS(60);
-    finerBalls_:=false;
+    ballRefinement_:=0;
     ballSize_:=0.013;
     flatShading_:=false;
+    hemispheres_:=false;
   end;
 
 PROCEDURE T_viewState.viewMouseDown(Sender: TObject; button: TMouseButton;
@@ -158,15 +162,13 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
           n,commonNormal:TVector3;
           j:longint;
       begin
-        p[0]:=p0;
-        p[1]:=p1;
-        p[2]:=p2;
+        p[0]:=p0*(1/euklideanNorm(p0));
+        p[1]:=p1*(1/euklideanNorm(p1));
+        p[2]:=p2*(1/euklideanNorm(p2));
         if refine=0 then begin
-          if flatShading_ then begin
-            commonNormal:=p0+p1+p2;
-            commonNormal*=1/euklideanNorm(commonNormal);
-          end;
-          for j:=0 to 2 do begin
+          commonNormal:=p[0]+p[1]+p[2];
+          commonNormal*=1/euklideanNorm(commonNormal);
+          if (commonNormal[2]>-0.05) or not(hemispheres_) then for j:=0 to 2 do begin
             n:=p[j];
             n*=1/euklideanNorm(n);
             if flatShading_
@@ -192,7 +194,6 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
 
     VAR n:TVector3;
         i:longint;
-        faceRefine:byte;
     begin
       //if GLInitialized then exit;
       //GLInitialized:=true;
@@ -237,12 +238,11 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glColor3f(1,0.5,0);
       glNewList(ParticleList, GL_COMPILE);
         glBegin(GL_TRIANGLES);
-          if finerBalls_ then faceRefine:=1 else faceRefine:=0;
           for i:=0 to 19 do
             addFace(C_IcosahedronNodes[C_icosahedronFaces[i,0]],
                     C_IcosahedronNodes[C_icosahedronFaces[i,1]],
                     C_IcosahedronNodes[C_icosahedronFaces[i,2]],
-                    faceRefine);
+                    ballRefinement_);
          glEnd;
       glEndList;
       glEnable(GL_LIGHTING);
@@ -313,7 +313,9 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE);
       glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
       glMaterialf(GL_FRONT, GL_SHININESS, 80.0);
-      ParticleEngine.DrawParticles(ParticleList);
+      if hemispheres_
+      then ParticleEngine.DrawParticles(ParticleList,-rx,-ry)
+      else ParticleEngine.DrawParticles(ParticleList,  0,  0);
       glDisable(GL_BLEND);
       glPopMatrix;
       OpenGLControl.SwapBuffers;
@@ -334,10 +336,10 @@ PROCEDURE T_viewState.setBallSize(CONST value: single);
     AreaInitialized:=false;
   end;
 
-PROCEDURE T_viewState.SetfinerBalls(CONST value: boolean);
+PROCEDURE T_viewState.setBallRefinement(CONST value: byte);
   begin
-    if value=finerBalls_ then exit;
-    finerBalls_:=value;
+    if value=ballRefinement_ then exit;
+    ballRefinement_:=value;
     AreaInitialized:=false;
   end;
 
@@ -369,7 +371,15 @@ PROCEDURE T_viewState.setLight2Brightness(CONST value: TGLfloat);
 
 PROCEDURE T_viewState.setFlatShading(CONST value: boolean);
   begin
+    if value=flatShading_ then exit;
     flatShading_:=value;
+    AreaInitialized:=false;
+  end;
+
+PROCEDURE T_viewState.setHemispheres(CONST value:boolean);
+  begin
+    if value=hemispheres_ then exit;
+    hemispheres_:=value;
     AreaInitialized:=false;
   end;
 

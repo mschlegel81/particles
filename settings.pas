@@ -13,6 +13,7 @@ TYPE
   { TSettingsForm }
 
   TSettingsForm = class(TForm)
+    Label9: TLabel;
     RestartButton: TButton;
     flatShadingCheckBox: TCheckBox;
     Label6: TLabel;
@@ -24,7 +25,7 @@ TYPE
     ScenarioProgressBar: TProgressBar;
     switchSetupButton: TButton;
     lockSetupCheckBox: TCheckBox;
-    finerBallsCheckBox: TCheckBox;
+    hemisphereCheckBox: TCheckBox;
     GroupBox1: TGroupBox;
     GroupBox2: TGroupBox;
     Label1: TLabel;
@@ -40,9 +41,11 @@ TYPE
     speedTrackBar: TTrackBar;
     switchTimeTrackBar: TTrackBar;
     light1TrackBar: TTrackBar;
+    BallQualityTrackBar: TTrackBar;
     updateFPSTimer: TTimer;
+    PROCEDURE BallQualityTrackBarChange(Sender: TObject);
     PROCEDURE ballSizeTrackBarChange(Sender: TObject);
-    PROCEDURE finerBallsCheckBoxChange(Sender: TObject);
+    PROCEDURE hemisphereCheckBoxChange(Sender: TObject);
     PROCEDURE flatShadingCheckBoxChange(Sender: TObject);
     PROCEDURE FormCreate(Sender: TObject);
     PROCEDURE FormDestroy(Sender: TObject);
@@ -96,13 +99,17 @@ PROCEDURE TSettingsForm.FormCreate(Sender: TObject);
 PROCEDURE TSettingsForm.ballSizeTrackBarChange(Sender: TObject);
   begin
     //range: 0.001 - 0.2
-
     sharedViewState.ballSize:=0.01*exp(ln(0.2/0.01)*ballSizeTrackBar.position/ballSizeTrackBar.max);
   end;
 
-PROCEDURE TSettingsForm.finerBallsCheckBoxChange(Sender: TObject);
+PROCEDURE TSettingsForm.BallQualityTrackBarChange(Sender: TObject);
   begin
-    sharedViewState.finerBalls:=finerBallsCheckBox.checked;
+    sharedViewState.ballRefinement:=BallQualityTrackBar.position;
+  end;
+
+PROCEDURE TSettingsForm.hemisphereCheckBoxChange(Sender: TObject);
+  begin
+    sharedViewState.hemispheres:=hemisphereCheckBox.checked;
   end;
 
 PROCEDURE TSettingsForm.flatShadingCheckBoxChange(Sender: TObject);

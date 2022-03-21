@@ -1,13 +1,13 @@
 object SettingsForm: TSettingsForm
   Left = 354
-  Height = 326
+  Height = 349
   Top = 213
   Width = 320
   AlphaBlend = True
   AlphaBlendValue = 200
   BorderStyle = bsNone
   Caption = 'Particles'
-  ClientHeight = 326
+  ClientHeight = 349
   ClientWidth = 320
   Color = clBlack
   Font.CharSet = ANSI_CHARSET
@@ -23,13 +23,13 @@ object SettingsForm: TSettingsForm
   LCLVersion = '2.0.12.0'
   object GroupBox1: TGroupBox
     Left = 0
-    Height = 166
+    Height = 191
     Top = 0
     Width = 320
     Align = alTop
     AutoSize = True
     Caption = 'Display'
-    ClientHeight = 146
+    ClientHeight = 171
     ClientWidth = 316
     Font.CharSet = ANSI_CHARSET
     Font.Color = clWhite
@@ -181,34 +181,34 @@ object SettingsForm: TSettingsForm
       ParentFont = False
       TabOrder = 1
     end
-    object finerBallsCheckBox: TCheckBox
+    object hemisphereCheckBox: TCheckBox
       AnchorSideLeft.Control = Label3
-      AnchorSideTop.Control = ballSizeTrackBar
+      AnchorSideTop.Control = BallQualityTrackBar
       AnchorSideTop.Side = asrBottom
       Left = 5
       Height = 19
-      Top = 72
-      Width = 71
+      Top = 97
+      Width = 87
       Align = alCustom
       BorderSpacing.Top = 5
-      Caption = 'finer Balls'
+      Caption = 'hemispheres'
       Font.CharSet = ANSI_CHARSET
       Font.Color = clWhite
       Font.Height = -12
       Font.Name = 'Segoe UI'
       Font.Pitch = fpVariable
       Font.Quality = fqDraft
-      OnChange = finerBallsCheckBoxChange
+      OnChange = hemisphereCheckBoxChange
       ParentFont = False
       TabOrder = 2
     end
     object Label7: TLabel
-      AnchorSideLeft.Control = finerBallsCheckBox
-      AnchorSideTop.Control = finerBallsCheckBox
+      AnchorSideLeft.Control = hemisphereCheckBox
+      AnchorSideTop.Control = hemisphereCheckBox
       AnchorSideTop.Side = asrBottom
       Left = 5
       Height = 15
-      Top = 96
+      Top = 121
       Width = 39
       Align = alCustom
       BorderSpacing.Top = 5
@@ -229,7 +229,7 @@ object SettingsForm: TSettingsForm
       AnchorSideRight.Side = asrBottom
       Left = 104
       Height = 25
-      Top = 96
+      Top = 121
       Width = 212
       Frequency = 16
       Max = 255
@@ -253,7 +253,7 @@ object SettingsForm: TSettingsForm
       AnchorSideTop.Control = light2TrackBar
       Left = 5
       Height = 15
-      Top = 121
+      Top = 146
       Width = 39
       Align = alCustom
       Caption = 'Light 2:'
@@ -274,7 +274,7 @@ object SettingsForm: TSettingsForm
       AnchorSideRight.Side = asrBottom
       Left = 104
       Height = 25
-      Top = 121
+      Top = 146
       Width = 212
       Frequency = 16
       Max = 255
@@ -293,12 +293,12 @@ object SettingsForm: TSettingsForm
       TabOrder = 4
     end
     object flatShadingCheckBox: TCheckBox
-      AnchorSideLeft.Control = finerBallsCheckBox
+      AnchorSideLeft.Control = hemisphereCheckBox
       AnchorSideLeft.Side = asrBottom
-      AnchorSideTop.Control = finerBallsCheckBox
-      Left = 84
+      AnchorSideTop.Control = hemisphereCheckBox
+      Left = 100
       Height = 19
-      Top = 72
+      Top = 97
       Width = 82
       Align = alCustom
       BorderSpacing.Left = 8
@@ -313,11 +313,39 @@ object SettingsForm: TSettingsForm
       ParentFont = False
       TabOrder = 5
     end
+    object Label9: TLabel
+      AnchorSideLeft.Control = Label1
+      AnchorSideTop.Control = BallQualityTrackBar
+      Left = 5
+      Height = 15
+      Top = 67
+      Width = 61
+      Align = alCustom
+      Caption = 'Ball quality:'
+      ParentColor = False
+    end
+    object BallQualityTrackBar: TTrackBar
+      AnchorSideLeft.Control = ballSizeTrackBar
+      AnchorSideTop.Control = ballSizeTrackBar
+      AnchorSideTop.Side = asrBottom
+      AnchorSideRight.Control = ballSizeTrackBar
+      AnchorSideRight.Side = asrBottom
+      Left = 104
+      Height = 25
+      Top = 67
+      Width = 212
+      Max = 3
+      OnChange = BallQualityTrackBarChange
+      Position = 0
+      Align = alCustom
+      Anchors = [akTop, akLeft, akRight]
+      TabOrder = 6
+    end
   end
   object GroupBox2: TGroupBox
     Left = 0
     Height = 130
-    Top = 166
+    Top = 191
     Width = 320
     Align = alTop
     AutoSize = True
@@ -581,7 +609,7 @@ object SettingsForm: TSettingsForm
   object RestartButton: TButton
     Left = 0
     Height = 25
-    Top = 296
+    Top = 321
     Width = 320
     Align = alTop
     Caption = '...'
@@ -592,7 +620,7 @@ object SettingsForm: TSettingsForm
   object updateFPSTimer: TTimer
     Interval = 500
     OnTimer = updateFPSTimerTimer
-    Left = 232
-    Top = 56
+    Left = 208
+    Top = 96
   end
 end

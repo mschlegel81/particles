@@ -77,7 +77,7 @@ TYPE
     DESTRUCTOR destroy; override;
     FUNCTION update(VAR modeTicks:longint):single;
     PROCEDURE nextSetup(VAR modeTicks:longint; CONST forcedMode:byte=255);
-    PROCEDURE DrawParticles(CONST ParticleList: GLuint);
+    PROCEDURE DrawParticles(CONST ParticleList: GLuint; CONST particleRotX,particleRotY:GLfloat);
     PROPERTY currentAttractionMode:byte read attractionMode;
   end;
 
@@ -1201,13 +1201,16 @@ PROCEDURE TParticleEngine.nextSetup(VAR modeTicks: longint; CONST forcedMode:byt
     switchAttractionMode(forcedMode);
   end;
 
-PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint);
+PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint; CONST particleRotX,particleRotY:GLfloat);
   VAR i: integer;
   begin
     for i:=0 to length(Particle)-1 do begin
       glColor3f(Particle[i].color[0],Particle[i].color[1],Particle[i].color[2]);
       glPushMatrix;
       glTranslatef(Particle[i].p[0], Particle[i].p[1], Particle[i].p[2]);
+      glRotatef(particleRotY,0.0,1.0,0.0);
+      glRotatef(particleRotX,0.1,0.0,0.0);
+
       glCallList(ParticleList);
       glPopMatrix;
     end;
