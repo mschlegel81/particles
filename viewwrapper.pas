@@ -145,23 +145,54 @@ PROCEDURE T_viewState.viewResize(Sender: TObject);
 PROCEDURE T_viewState.viewPaint(Sender: TObject);
 
   PROCEDURE initializeArea;
+    PROCEDURE addFace(CONST p0,p1,p2:TVector3; CONST refine:byte);
+      CONST FINER_NODE:array[0..3,0..2] of byte = ((0,3,5),(3,1,4),(3,4,5),(5,4,2));
+      //      2
+      //     / \
+      //    /   \
+      //   5-----4
+      //  / \   / \
+      // /   \ /   \
+      //0-----3-----1
+      VAR p:array[0..5] of TVector3;
+          n,commonNormal:TVector3;
+          j:longint;
+      begin
+        p[0]:=p0;
+        p[1]:=p1;
+        p[2]:=p2;
+        if refine=0 then begin
+          if flatShading_ then begin
+            commonNormal:=p0+p1+p2;
+            commonNormal*=1/euklideanNorm(commonNormal);
+          end;
+          for j:=0 to 2 do begin
+            n:=p[j];
+            n*=1/euklideanNorm(n);
+            if flatShading_
+            then glNormal3f(commonNormal[0],commonNormal[1],commonNormal[2])
+            else glNormal3f(n[0],n[1],n[2]);
+            n*=ballSize_;
+            glVertex3f(n[0],n[1],n[2]);
+          end;
+        end else begin
+          p[3]:=p[0]+p[1];
+          p[4]:=p[1]+p[2];
+          p[5]:=p[2]+p[0];
+          for j:=0 to 3 do addFace(p[FINER_NODE[j,0]],p[FINER_NODE[j,1]],p[FINER_NODE[j,2]],refine-1);
+        end;
+      end;
+
     CONST C_icosahedronFaces:array[0..19,0..2] of byte=
       ((1,2,0),(0, 4,3),( 5, 6,1),(3, 7, 5),
        (2,9,8),(8,10,4),(11, 9,6),(7,10,11),
        (0,3,1),(1, 3,5),( 9,10,8),(11,10,9),
        (2,8,0),(0, 8,4),( 5,11,6),( 7,11,5),
        (1,6,2),(4, 7,3),( 2, 6,9),(10, 7,4));
-       //      2
-       //     / \
-       //    /   \
-       //   5-----4
-       //  / \   / \
-       // /   \ /   \
-       //0-----3-----1
-       FINER_NODE:array[0..3,0..2] of byte = ((0,3,5),(3,1,4),(3,4,5),(5,4,2));
-    VAR p:array[0..5] of TVector3;
-        n,commonNormal:TVector3;
-        i,j,k:longint;
+
+    VAR n:TVector3;
+        i:longint;
+        faceRefine:byte;
     begin
       //if GLInitialized then exit;
       //GLInitialized:=true;
@@ -206,45 +237,13 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glColor3f(1,0.5,0);
       glNewList(ParticleList, GL_COMPILE);
         glBegin(GL_TRIANGLES);
-          for i:=0 to 19 do begin
-            if finerBalls_ then begin
-              p[0]:=C_IcosahedronNodes[C_icosahedronFaces[i,0]];
-              p[1]:=C_IcosahedronNodes[C_icosahedronFaces[i,1]];
-              p[2]:=C_IcosahedronNodes[C_icosahedronFaces[i,2]];
-              p[3]:=p[0]+p[1];
-              p[4]:=p[1]+p[2];
-              p[5]:=p[2]+p[0];
-              for j:=0 to 5 do p[j]*=1/euklideanNorm(p[j]);
-              for j:=0 to 3 do begin
-                commonNormal:=p[FINER_NODE[j,0]]+p[FINER_NODE[j,1]]+p[FINER_NODE[j,2]];
-                commonNormal*=1/euklideanNorm(commonNormal);
-                for k:=0 to 2 do begin
-                  n:=p[FINER_NODE[j,k]];
-                  if flatShading_
-                  then glNormal3f(commonNormal[0],commonNormal[1],commonNormal[2])
-                  else glNormal3f(n[0],n[1],n[2]);
-                  n*=ballSize_;
-                  glVertex3f(n[0],n[1],n[2]);
-                end;
-              end;
-            end else begin
-              commonNormal:=C_IcosahedronNodes[C_icosahedronFaces[i,0]]+
-                            C_IcosahedronNodes[C_icosahedronFaces[i,1]]+
-                            C_IcosahedronNodes[C_icosahedronFaces[i,2]];
-              commonNormal*=1/euklideanNorm(commonNormal);
-              for j:=0 to 2 do begin
-                n:=C_IcosahedronNodes[C_icosahedronFaces[i,j]];
-                n*=1/euklideanNorm(n);
-                if flatShading_
-                then glNormal3f(commonNormal[0],commonNormal[1],commonNormal[2])
-                else glNormal3f(n[0],n[1],n[2]);
-                n*=ballSize_;
-                glVertex3f(n[0],n[1],n[2]);
-              end;
-            end;
-          end;
-
-        glEnd;
+          if finerBalls_ then faceRefine:=1 else faceRefine:=0;
+          for i:=0 to 19 do
+            addFace(C_IcosahedronNodes[C_icosahedronFaces[i,0]],
+                    C_IcosahedronNodes[C_icosahedronFaces[i,1]],
+                    C_IcosahedronNodes[C_icosahedronFaces[i,2]],
+                    faceRefine);
+         glEnd;
       glEndList;
       glEnable(GL_LIGHTING);
 
@@ -271,9 +270,6 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
     if (LastFrameTicks>=1000) then begin
       measuredFps:=frameCount*1000/LastFrameTicks;
       dec(LastFrameTicks,1000);
-
-//      caption:='Particles ('+intToStr(frameCount)+'fps)';
-//      DebugLn(['TExampleForm.OpenGLControl1Paint Frames per second: ',measuredFps]);
       frameCount:=0;
     end;
 
@@ -314,10 +310,9 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glLightfv(GL_LIGHT0,GL_POSITION,lightpos);
       glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
       glEnable(GL_BLEND);
-//      glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
       glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE);
       glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
-      glMaterialf(GL_FRONT, GL_SHININESS, 40.0);
+      glMaterialf(GL_FRONT, GL_SHININESS, 80.0);
       ParticleEngine.DrawParticles(ParticleList);
       glDisable(GL_BLEND);
       glPopMatrix;
