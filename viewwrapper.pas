@@ -8,13 +8,14 @@ USES
   Classes, sysutils,
   particlePhysics,vectors,
   GL,OpenGLContext,
-  Controls;
+  Controls,
+  serializationUtil;
 
 TYPE
 
   { T_viewState }
 
-  T_viewState=class
+  T_viewState=object(T_serializable)
     private
       //OpenGL variables
       lightamb,
@@ -72,6 +73,12 @@ TYPE
       PROPERTY light2Brightness:TGLfloat read getLight2Brightness write setLight2Brightness;
       PROPERTY flatShading:boolean read flatShading_ write setFlatShading;
       PROPERTY hemispheres:boolean read hemispheres_ write setHemispheres;
+
+      FUNCTION getSerialVersion:dword; virtual;
+      FUNCTION loadFromStream(VAR stream:T_bufferedInputStreamWrapper):boolean; virtual;
+      PROCEDURE saveToStream(VAR stream:T_bufferedOutputStreamWrapper); virtual;
+
+      DESTRUCTOR destroy;
   end;
 
 IMPLEMENTATION
@@ -110,6 +117,42 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
     ballSize_:=0.013;
     flatShading_:=false;
     hemispheres_:=false;
+  end;
+
+FUNCTION T_viewState.getSerialVersion: dword;
+  begin
+    result:=1;
+  end;
+
+FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): boolean;
+  begin
+    if not inherited then exit(false);
+    ballSize:=stream.readSingle;
+    ballRefinement:=stream.readByte([0,1,2,3]);
+    flatShading:=stream.readBoolean;
+    hemispheres:=stream.readBoolean;
+    setTargetFPS(stream.readLongint);
+    light1Brightness:=stream.readSingle;
+    light2Brightness:=stream.readSingle;
+    result:=ParticleEngine.loadFromStream(stream) and stream.allOkay;
+  end;
+
+PROCEDURE T_viewState.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
+  begin
+    inherited;
+    stream.writeSingle(ballSize);
+    stream.writeByte(ballRefinement);
+    stream.writeBoolean(flatShading);
+    stream.writeBoolean(hemispheres);
+    stream.writeLongint(targetFPS);
+    stream.writeSingle(light1Brightness);
+    stream.writeSingle(light2Brightness);
+    ParticleEngine.saveToStream(stream);
+  end;
+
+DESTRUCTOR T_viewState.destroy;
+  begin
+    FreeAndNil(ParticleEngine);
   end;
 
 PROCEDURE T_viewState.viewMouseDown(Sender: TObject; button: TMouseButton;

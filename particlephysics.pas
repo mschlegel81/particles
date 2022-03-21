@@ -3,7 +3,7 @@ UNIT particlePhysics;
 {$mode objfpc}{$H+}
 
 INTERFACE
-USES vectors,GL;
+USES vectors,GL,serializationUtil;
 
 TYPE
   TParticle = record
@@ -74,11 +74,14 @@ TYPE
     MODE_SWITCH_INTERVAL_IN_TICKS:longint;
     TICKS_PER_SIMULATION_TIME_UNIT:double;
     CONSTRUCTOR create;
-    DESTRUCTOR destroy; override;
+    DESTRUCTOR destroy;
     FUNCTION update(VAR modeTicks:longint):single;
     PROCEDURE nextSetup(VAR modeTicks:longint; CONST forcedMode:byte=255);
     PROCEDURE DrawParticles(CONST ParticleList: GLuint; CONST particleRotX,particleRotY:GLfloat);
     PROPERTY currentAttractionMode:byte read attractionMode;
+
+    FUNCTION loadFromStream(VAR stream:T_bufferedInputStreamWrapper):boolean; virtual;
+    PROCEDURE saveToStream(VAR stream:T_bufferedOutputStreamWrapper); virtual;
   end;
 
 CONST
@@ -1216,7 +1219,21 @@ PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint; CONST partic
     end;
   end;
 
-PROCEDURE TParticleEngine.switchAttractionMode(CONST forcedMode:byte=255);
+FUNCTION TParticleEngine.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): boolean;
+  begin
+    lockCurrentSetup:=stream.readBoolean;
+    MODE_SWITCH_INTERVAL_IN_TICKS:=stream.readNaturalNumber;
+    TICKS_PER_SIMULATION_TIME_UNIT:=stream.readDouble;
+  end;
+
+PROCEDURE TParticleEngine.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
+  begin
+    stream.writeBoolean(lockCurrentSetup);
+    stream.writeNaturalNumber(MODE_SWITCH_INTERVAL_IN_TICKS);
+    stream.writeDouble(TICKS_PER_SIMULATION_TIME_UNIT);
+  end;
+
+PROCEDURE TParticleEngine.switchAttractionMode(CONST forcedMode: byte);
   PROCEDURE prepareForPyramid;
     VAR i:longint;
     begin

@@ -63,8 +63,8 @@ CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
     FormResize(self);
 
     initOpenGlControl;
-    viewState:=T_viewState.create(OpenGLControl1);
-    sharedViewState:=viewState;
+    viewState.create(OpenGLControl1);
+    sharedViewState:=@viewState;
     FormResize(self);
 
     if (paramCount>=1) and (paramStr(1)='-windowed') then begin
@@ -74,11 +74,13 @@ CONSTRUCTOR TExampleForm.create(TheOwner: TComponent);
       WindowState:=wsFullScreen;
       BorderStyle:=bsNone;
     end;
+    viewState.loadFromFile(ChangeFileExt(paramStr(0),'.settings'));
   end;
 
 DESTRUCTOR TExampleForm.destroy;
   begin
-    FreeAndNil(viewState);
+    viewState.saveToFile(ChangeFileExt(paramStr(0),'.settings'));
+    viewState.destroy;
     inherited destroy;
   end;
 

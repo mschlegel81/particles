@@ -6,3 +6,4 @@
 *.obj
 /particles.lps
 /settings.lrs
+/*.settings

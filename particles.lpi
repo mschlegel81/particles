@@ -20,6 +20,9 @@
           <Target>
             <Filename Value="particles"/>
           </Target>
+          <SearchPaths>
+            <OtherUnitFiles Value="common"/>
+          </SearchPaths>
           <CodeGeneration>
             <Optimizations>
               <OptimizationLevel Value="3"/>
@@ -102,5 +105,8 @@
     <Target>
       <Filename Value="particles_debug"/>
     </Target>
+    <SearchPaths>
+      <OtherUnitFiles Value="common"/>
+    </SearchPaths>
   </CompilerOptions>
 </CONFIG>
