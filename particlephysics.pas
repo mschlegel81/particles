@@ -199,7 +199,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         if (tmp>aMax) and not(isInfinite(tmp)) and not(isNan(tmp)) then aMax:=tmp;
       end;
       aMax:=sqrt(aMax);
-      subSteps:=capSubSteps(trunc(aMax*dt*20));
+      subSteps:=capSubSteps(trunc(aMax*dt*dt*1000));
+      DebugLn(['Substeps: ',subSteps]);
       lastSubSteps:=subSteps;
       dtSub:=dt/subSteps;
       for k:=1 to subSteps do begin
@@ -223,7 +224,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       else imax:=iMax_;
       for i:=0 to imax do with Particle[i] do begin
         updateA(min(1,lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS),i);
-        subSteps:=capSubSteps(trunc(euklideanNorm(a)*dt*20));
+        subSteps:=capSubSteps(trunc(euklideanNorm(a)*dt*dt*1000));
         totalSubSteps+=subSteps;
         dtSub:=dt/subSteps;
         for k:=1 to subSteps do begin
@@ -233,6 +234,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         end;
       end;
       lastSubSteps:=round(totalSubSteps/(imax+1));
+      DebugLn(['Substeps: ',lastSubSteps]);
       for i:=imax+1 to length(Particle)-1 do with Particle[i] do fallAndBounce(i);
     end;
 
