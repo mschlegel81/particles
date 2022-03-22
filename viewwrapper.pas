@@ -121,7 +121,7 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
 
 FUNCTION T_viewState.getSerialVersion: dword;
   begin
-    result:=1;
+    result:=2;
   end;
 
 FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): boolean;
@@ -308,7 +308,7 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
   begin
     inc(frameCount);
     tickDelta:=OpenGLControl.FrameDiffTimeInMSecs;
-    inc(modeTicks     ,tickDelta);
+    inc(modeTicks     ,round(TARGET_TICKS_PER_FRAME));
     inc(LastFrameTicks,tickDelta);
     if (LastFrameTicks>=1000) then begin
       measuredFps:=frameCount*1000/LastFrameTicks;
@@ -320,7 +320,7 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       if not AreaInitialized then initializeArea;
       timer:=ParticleEngine.update(modeTicks);
 
-      sleepTimeMilliseconds:=sleepTimeMilliseconds+0.1*(TARGET_TICKS_PER_FRAME-tickDelta);
+      sleepTimeMilliseconds:=sleepTimeMilliseconds+0.01*(TARGET_TICKS_PER_FRAME-tickDelta);
       if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
       sleep(trunc(sleepTimeMilliseconds));
 

@@ -29,7 +29,6 @@ TYPE
     lissajousParam:array[0..2] of byte;
     Particle:  array [0..1023] of TParticle;
     gridPoint: array [0..1023] of TIntVec3;
-    lastSubSteps:longint;
 
     PROCEDURE updateA_cyclic(CONST progress:double);
     PROCEDURE updateA_cyclicMirror(CONST progress:double);
@@ -68,11 +67,12 @@ TYPE
     PROCEDURE switchAttractionMode(CONST forcedMode:byte=255);
     PROCEDURE MoveParticles(CONST modeTicks:longint);
 
-    FUNCTION capSubSteps(CONST proposedSubSteps:longint):longint;
+    FUNCTION capSubSteps(CONST proposedSubSteps:double; CONST otherProposedSubSteps:double=0):longint;
   public
     lockCurrentSetup:boolean;
     MODE_SWITCH_INTERVAL_IN_TICKS:longint;
     TICKS_PER_SIMULATION_TIME_UNIT:double;
+
     CONSTRUCTOR create;
     DESTRUCTOR destroy;
     FUNCTION update(VAR modeTicks:longint):single;
@@ -159,36 +159,40 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
     end;
 
   VAR dt:double;
+      fallAndBounceDtSub:double;
+      fallAndBounceSubSteps:longint;
   FUNCTION fallAndBounce(CONST i:longint):boolean;
     CONST BLUE  :TVector3=(0,0,1);
     VAR acc:TVector3;
         hitTime:double;
+        subStep:longint;
     begin
       result:=false;
-      with Particle[i] do begin
+      for subStep:=1 to fallAndBounceSubSteps do with Particle[i] do begin
         acc[0]:=0;
         acc[1]:=-1;
         acc[2]:=0;
-        v+=(acc-v*(euklideanNorm(v)*0.5))*dt;
+        v+=(acc-v*(euklideanNorm(v)*0.5))*fallAndBounceDtSub;
         if p[1]<=-1 then begin
           p[1]:=-1;
           v[1]:=1;
           color:=BLUE;
           result:=true;
         end;
-        if (v[1]<0) and (p[1]+v[1]*dt<=-1) then begin
+        if (v[1]<0) and (p[1]+v[1]*fallAndBounceDtSub<=-1) then begin
           hitTime:=(-1-p[1])/v[1];
           v[1]:=0.9*abs(v[1]);
-          p[1]:=-1+v[1]*(dt-hitTime);
+          p[1]:=-1+v[1]*(fallAndBounceDtSub-hitTime);
           color:=color*0.7+BLUE*0.3;
           result:=true;
-        end else p+=v*dt;
+        end else p+=v*fallAndBounceDtSub;
       end;
     end;
 
   PROCEDURE moveTowardsTargets(CONST updateA:FUpdateAcceleration; CONST iMax_:longint=1023);
     VAR i,imax:longint;
         aMax:double=0;
+        vMax:double=0;
         tmp,dtSub:double;
         subSteps,k:longint;
     begin
@@ -200,11 +204,14 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       for i:=0 to imax do with Particle[i] do begin
         tmp:=vectors.sumOfSquares(a);
         if (tmp>aMax) and not(isInfinite(tmp)) and not(isNan(tmp)) then aMax:=tmp;
+        tmp:=vectors.sumOfSquares(v);
+        if (tmp>vMax) and not(isInfinite(tmp)) and not(isNan(tmp)) then vMax:=tmp;
       end;
       aMax:=sqrt(aMax);
-      subSteps:=capSubSteps(trunc(aMax*dt*dt*1000));
+      vMax:=sqrt(vMax);
+      subSteps:=capSubSteps(dt*sqrt(aMax*1000),
+                            dt*     vMax*1000);
       DebugLn(['Substeps: ',subSteps]);
-      lastSubSteps:=subSteps;
       dtSub:=dt/subSteps;
       for k:=1 to subSteps do begin
         if k>1 then updateA(min(1,(lastModeTicks+dtSub*(k-1)*TICKS_PER_SIMULATION_TIME_UNIT)/MODE_SWITCH_INTERVAL_IN_TICKS));
@@ -227,7 +234,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       else imax:=iMax_;
       for i:=0 to imax do with Particle[i] do begin
         updateA(min(1,lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS),i);
-        subSteps:=capSubSteps(trunc(euklideanNorm(a)*dt*dt*1000));
+        subSteps:=capSubSteps(dt*sqrt(euklideanNorm(a)*10000),
+                              dt*     euklideanNorm(v)*1000);
         totalSubSteps+=subSteps;
         dtSub:=dt/subSteps;
         for k:=1 to subSteps do begin
@@ -236,8 +244,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
           p+=v*dtSub;
         end;
       end;
-      lastSubSteps:=round(totalSubSteps/(imax+1));
-      DebugLn(['Substeps: ',lastSubSteps]);
+      DebugLn(['Substeps: ',round(totalSubSteps/(imax+1))]);
       for i:=imax+1 to length(Particle)-1 do with Particle[i] do fallAndBounce(i);
     end;
 
@@ -391,6 +398,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
   begin
     fixBrokenPositions;
     dt:=(modeTicks-lastModeTicks)/TICKS_PER_SIMULATION_TIME_UNIT;
+    fallAndBounceSubSteps:=capSubSteps(dt*dt*1000);
+    fallAndBounceDtSub:=dt/fallAndBounceSubSteps;
     case attractionMode of
       0: begin
         moveTowardsTargets(@updateA_cyclic);
@@ -461,7 +470,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       end;
       19: begin
         moveTowardsTargets(@updateA_byDistance);
-        updateColors_byRadius;
+        //updateColors_byRadius;
+        updateColors_rainbow;
       end;
       CLOCK_TARGET: begin
         moveTowardsTargetsNoninteracting(@updateA_clock);
@@ -485,16 +495,14 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
     lastModeTicks:=modeTicks;
   end;
 
-FUNCTION TParticleEngine.capSubSteps(CONST proposedSubSteps: longint): longint;
+FUNCTION TParticleEngine.capSubSteps(CONST proposedSubSteps:double; CONST otherProposedSubSteps:double=0): longint;
   CONST HARD_UPPER_BOUND=500;
         HARD_LOWER_BOUND=1;
   begin
     if      proposedSubSteps<HARD_LOWER_BOUND then result:=HARD_LOWER_BOUND
-    else if proposedSubSteps>HARD_UPPER_BOUND then result:=HARD_UPPER_BOUND
-                                              else result:=proposedSubSteps;
-    //Not more than 10% fluctuation between frames
-    result:=max(result,floor(lastSubSteps*0.9));
-    result:=min(result,ceil (lastSubSteps*1.1));
+    else if (proposedSubSteps>HARD_UPPER_BOUND) or (otherProposedSubSteps>HARD_UPPER_BOUND)
+    then result:=HARD_UPPER_BOUND
+    else result:=ceil(max(proposedSubSteps,otherProposedSubSteps));
   end;
 
 FUNCTION accel(CONST v,p,target:TVector3; CONST springConstant,dampingFctor:double):TVector3;
@@ -511,7 +519,7 @@ PROCEDURE TParticleEngine.updateA_cyclic(CONST progress: double);
      r:=euklideanNorm(targetPosition);
      if      r<0.5 then targetPosition*=0.5/r
      else if r>2   then targetPosition*=2  /r;
-     a:=accel(v,p,targetPosition,50,-50)-p*1E-2;
+     a:=accel(v,p,targetPosition,50,-40)-p*1E-1;
    end;
  end;
 
@@ -956,23 +964,20 @@ PROCEDURE TParticleEngine.updateA_sliver(CONST progress: double);
   end;
 
 PROCEDURE TParticleEngine.updateA_byDistance(CONST progress: double);
-  VAR i,k:longint;
-      d,dMin:TVector3;
-      r     :double;
-      rMin  :double=100;
+  VAR i:longint;
+      d:TVector3;
+      targetRadius,currentRadius:double;
   begin
-    with Particle[0] do a:=accel(v,p,ZERO_VECTOR,5,-3);
+    with Particle[0] do begin
+      a:=accel(v,p,ZERO_VECTOR,14,-20);
+      d:=p+v;
+    end;
     for i:=1 to length(Particle)-1 do with Particle[i] do begin
-      for k:=0 to i-1 do begin
-        d:=Particle[k].p-p;
-        r:=vectors.sumOfSquares(d);
-        if (k=0) or (r<rMin) then begin
-          rMin:=r;
-          dMin:=d;
-        end;
-      end;
-      rMin:=sqrt(rMin);
-      a:=accel(v,p,p+dMin*(0.1/rMin),5,-3)-p*(0.1);
+      targetRadius:=2*sqrt(i/length(Particle));
+      currentRadius:=euklideanNorm(p);
+      a:=accel(v,p,d*(targetRadius/euklideanNorm(d)),14,-20);
+      if currentRadius<targetRadius then a+=p*(1/currentRadius*(targetRadius-currentRadius)*10);
+      d:=p+v;
     end;
   end;
 
@@ -993,8 +998,7 @@ PROCEDURE TParticleEngine.lorenzAttractor(CONST dt: double);
       dtSub:double;
       dx0,dx1,dx2,dx3:TVector3;
   begin
-    subSteps:=capSubSteps(ceil(dt/maxTimeStep));
-    lastSubSteps:=subSteps;
+    subSteps:=capSubSteps(dt/maxTimeStep);
     dtSub:=dt/subSteps;
     for i:=0 to length(Particle)-1 do with Particle[i] do
     for k:=1 to subSteps do begin
@@ -1025,8 +1029,7 @@ PROCEDURE TParticleEngine.thomasAttractor(CONST dt: double);
       dtSub:double;
       dx0,dx1,dx2,dx3:TVector3;
   begin
-    subSteps:=capSubSteps(ceil(dt/maxTimeStep));
-    lastSubSteps:=subSteps;
+    subSteps:=capSubSteps(dt/maxTimeStep);
     dtSub:=dt/subSteps;
     for i:=0 to length(Particle)-1 do with Particle[i] do begin
       for k:=1 to subSteps do begin
@@ -1177,7 +1180,6 @@ CONSTRUCTOR TParticleEngine.create;
     attractionMode:=ATTRACTION_MODE_COUNT;
     switchAttractionMode;
     lastModeTicks:=0;
-    lastSubSteps:=1;
   end;
 
 DESTRUCTOR TParticleEngine.destroy;
@@ -1220,10 +1222,13 @@ PROCEDURE TParticleEngine.DrawParticles(CONST ParticleList: GLuint; CONST partic
   end;
 
 FUNCTION TParticleEngine.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): boolean;
+  VAR readAttractionMode:byte;
   begin
     lockCurrentSetup:=stream.readBoolean;
     MODE_SWITCH_INTERVAL_IN_TICKS:=stream.readNaturalNumber;
     TICKS_PER_SIMULATION_TIME_UNIT:=stream.readDouble;
+    readAttractionMode:=stream.readByte;
+    if lockCurrentSetup then switchAttractionMode(readAttractionMode);
   end;
 
 PROCEDURE TParticleEngine.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
@@ -1231,6 +1236,7 @@ PROCEDURE TParticleEngine.saveToStream(VAR stream: T_bufferedOutputStreamWrapper
     stream.writeBoolean(lockCurrentSetup);
     stream.writeNaturalNumber(MODE_SWITCH_INTERVAL_IN_TICKS);
     stream.writeDouble(TICKS_PER_SIMULATION_TIME_UNIT);
+    stream.writeByte(attractionMode);
   end;
 
 PROCEDURE TParticleEngine.switchAttractionMode(CONST forcedMode: byte);
