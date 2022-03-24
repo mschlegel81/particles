@@ -21,7 +21,7 @@
             <Filename Value="particles"/>
           </Target>
           <SearchPaths>
-            <OtherUnitFiles Value="common"/>
+            <OtherUnitFiles Value="common;epiktimer"/>
           </SearchPaths>
           <CodeGeneration>
             <Optimizations>
@@ -106,7 +106,7 @@
       <Filename Value="particles_debug"/>
     </Target>
     <SearchPaths>
-      <OtherUnitFiles Value="common"/>
+      <OtherUnitFiles Value="common;epiktimer"/>
     </SearchPaths>
   </CompilerOptions>
 </CONFIG>

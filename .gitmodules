@@ -2,3 +2,7 @@
 	path = common
 	url = https://github.com/mschlegel81/common.git
 	branch = master
+[submodule "epiktimer"]
+	path = epiktimer
+	url = https://github.com/graemeg/epiktimer.git
+	branch = master

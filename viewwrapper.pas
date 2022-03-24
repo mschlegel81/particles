@@ -9,7 +9,8 @@ USES
   particlePhysics,vectors,
   GL,OpenGLContext,
   Controls,
-  serializationUtil;
+  serializationUtil,
+  EpikTimer;
 
 TYPE
 
@@ -33,6 +34,7 @@ TYPE
       hemispheres_:boolean;
 
       //Frame rate control
+      frameTimer    : TEpikTimer;
       frameCount    : integer;
       LastFrameTicks: integer;
       sleepTimeMilliseconds:double;
@@ -91,6 +93,9 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
     OpenGLControl:=control;
     ParticleEngine:=TParticleEngine.create;
     sleepTimeMilliseconds:=0;
+    frameTimer:=TEpikTimer.Create(nil);
+    frameTimer.Clear;
+    frameTimer.Start;
 
     mouseX :=0;
     mouseY :=0;
@@ -153,6 +158,7 @@ PROCEDURE T_viewState.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
 
 DESTRUCTOR T_viewState.destroy;
   begin
+    FreeAndNil(frameTimer);
     FreeAndNil(ParticleEngine);
   end;
 
@@ -308,10 +314,12 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
 
   begin
     inc(frameCount);
-    tickDelta:=OpenGLControl.FrameDiffTimeInMSecs;
+    tickDelta:=round(frameTimer.Elapsed*1000);
     inc(modeTicks     ,tickDelta);
     inc(LastFrameTicks,tickDelta);
-    DebugLn(['Tick delta: ',tickDelta]);
+    DebugLn(['Tick delta: ',tickDelta,'; ',frameTimer.Elapsed]);
+    frameTimer.Clear;
+    frameTimer.Start;
     if (LastFrameTicks>=1000) then begin
       measuredFps:=frameCount*1000/LastFrameTicks;
       dec(LastFrameTicks,1000);
