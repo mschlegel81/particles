@@ -93,9 +93,9 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
     OpenGLControl:=control;
     ParticleEngine:=TParticleEngine.create;
     sleepTimeMilliseconds:=0;
-    frameTimer:=TEpikTimer.Create(nil);
-    frameTimer.Clear;
-    frameTimer.Start;
+    frameTimer:=TEpikTimer.create(nil);
+    frameTimer.clear;
+    frameTimer.start;
 
     mouseX :=0;
     mouseY :=0;
@@ -314,12 +314,12 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
 
   begin
     inc(frameCount);
-    tickDelta:=round(frameTimer.Elapsed*1000);
+    tickDelta:=round(frameTimer.elapsed*1000);
     inc(modeTicks     ,tickDelta);
     inc(LastFrameTicks,tickDelta);
-    DebugLn(['Tick delta: ',tickDelta,'; ',frameTimer.Elapsed]);
-    frameTimer.Clear;
-    frameTimer.Start;
+    DebugLn(['Tick delta: ',tickDelta,'; ',frameTimer.elapsed]);
+    frameTimer.clear;
+    frameTimer.start;
     if (LastFrameTicks>=1000) then begin
       measuredFps:=frameCount*1000/LastFrameTicks;
       dec(LastFrameTicks,1000);

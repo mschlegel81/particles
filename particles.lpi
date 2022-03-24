@@ -67,37 +67,32 @@
         <PackageName Value="LCL"/>
       </Item2>
     </RequiredPackages>
-    <Units Count="6">
+    <Units Count="5">
       <Unit0>
         <Filename Value="particles.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit0>
       <Unit1>
-        <Filename Value="particlesform.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="particlesForm"/>
-      </Unit1>
-      <Unit2>
         <Filename Value="particlephysics.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="particlePhysics"/>
-      </Unit2>
-      <Unit3>
+      </Unit1>
+      <Unit2>
         <Filename Value="vectors.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit3>
-      <Unit4>
+      </Unit2>
+      <Unit3>
         <Filename Value="viewwrapper.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="viewWrapper"/>
-      </Unit4>
-      <Unit5>
+      </Unit3>
+      <Unit4>
         <Filename Value="settings.pas"/>
         <IsPartOfProject Value="True"/>
         <ComponentName Value="SettingsForm"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-      </Unit5>
+      </Unit4>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

@@ -24,10 +24,10 @@ PROGRAM particles;
 {$mode objfpc}{$H+}
 
 USES
-  Interfaces, Forms, particlesForm, settings;
+  Interfaces, Forms,  settings;
 
 begin
   Application.initialize;
-  Application.CreateForm(TExampleForm, AnExampleForm);
+  Application.CreateForm(TSettingsForm,SettingsForm);
   Application.run;
 end.
