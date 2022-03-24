@@ -26,6 +26,9 @@ TYPE
     attractionMode:byte;
     commonTargetColor:TVector3;
     commonSaturation,commonHueOffset:TGLfloat;
+
+    fireworkGroups:array of array of longint;
+
     lissajousParam:array[0..2] of byte;
     Particle:  array [0..1023] of TParticle;
     gridPoint: array [0..1023] of TIntVec3;
@@ -401,51 +404,63 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
 
   PROCEDURE fireworks;
     CONST fallAcceleration:TVector3=(0,-1,0);
-    VAR i,i0,group:longint;
-        middle,sharedSpeed:TVector3;
-        allDown:boolean=false;
-        explodeHeight:double;
-        setupTime:double;
-    begin
-      setupTime:=modeTicks/TICKS_PER_SIMULATION_TIME_UNIT;
 
-      for group:=0 to length(Particle) shr 4 do begin
-
-        explodeHeight:=group/(length(Particle) shr 5);
-
-        i0:=group shl 5;
-
-        sharedSpeed:=ZERO_VECTOR;
-        allDown:=true;
-        for i:=i0 to i0+31 do with Particle[i] do begin
-          allDown:=allDown and (p[1]<-1);
-          sharedSpeed+=v;
+    FUNCTION formNewFallingGroup:boolean;
+      VAR k,i,groupIndex:longint;
+          startingPoint:TVector3;
+      begin
+        groupIndex:=length(fireworkGroups);
+        setLength(fireworkGroups,groupIndex+1);
+        setLength(fireworkGroups[groupIndex],length(Particle));
+        result:=false;
+        k:=0;
+        for i:=0 to length(Particle)-1 do if Particle[i].p[1]<-1 then begin
+          fireworkGroups[groupIndex][k]:=i;
+          inc(k);
+          result:=true;
         end;
-
-        if allDown and (setupTime-commonSaturation>0.5) then begin
-          commonSaturation:=setupTime;
-          middle:=randomInSphere;
-          middle[1]:=-1;
-          middle:=vectorOf(0,-1,0);
-
-          sharedSpeed[0]:=2*pi*random;
-          sharedSpeed[2]:=cos(sharedSpeed[0])*0.5;
-          sharedSpeed[0]:=sin(sharedSpeed[1])*0.5;
-          sharedSpeed[1]:=2;
-          for i:=i0 to i0+31 do with Particle[i] do begin
-            p:=middle;
-            v:=sharedSpeed;
+        setLength(fireworkGroups[groupIndex],k);
+        if result then begin
+          startingPoint:=vectorOf((random+random+random+random+random+random-3)/2,
+                                  -1,
+                                  (random+random+random+random+random+random-3)/2);
+          for i in fireworkGroups[groupIndex] do with Particle[i] do begin
+            p:=startingPoint;
+            v:=ZERO_VECTOR;
             color:=WHITE;
           end;
-        end else if (Particle[i0].p[1]>=explodeHeight) and (euklideanNorm(Particle[i0].v-Particle[i0+8].v)<0.1) then begin
-          middle:=hsvColor(random,1,2);
-          for i:=0 to 31 do with Particle[i0+i] do begin
-            v+=randomOnSphere*0.5;
-            color:=middle;
-
-          end;
-        end;
+        end else setLength(fireworkGroups,groupIndex);
       end;
+
+    PROCEDURE explodeGroup(CONST groupIndex:longint);
+      VAR a,dv:TVector3;
+          k:longint;
+          color:TVector3;
+      begin
+        a:=randomOnSphere;
+        color:=hsvColor(random,1,1);
+        for k in fireworkGroups[groupIndex] do begin
+          dv:=randomOnSphere;
+          dv-=a*(dv*a);
+          Particle[k].v+=dv;
+          Particle[k].color:=color;
+        end;
+        setLength(fireworkGroups[groupIndex],0);
+      end;
+
+    VAR setupTime:double;
+        j:longint=0;
+        i:longint;
+    begin
+      setupTime:=modeTicks/TICKS_PER_SIMULATION_TIME_UNIT;
+      if (setupTime-commonSaturation>0.5) and formNewFallingGroup then commonSaturation:=setupTime+random;
+      for i:=0 to length(fireworkGroups)-1 do begin
+        if Particle[fireworkGroups[i][0]].p[1]>random
+        then explodeGroup(i)
+        else begin fireworkGroups[j]:=fireworkGroups[i]; inc(j); end;
+      end;
+      setLength(fireworkGroups,j);
+      for j:=0 to length(fireworkGroups)-1 do for i in fireworkGroups[j] do Particle[i].v-=fallAcceleration*(2*dt);
 
       for i:=0 to length(Particle)-1 do with Particle[i] do begin
         v+=fallAcceleration*dt;
@@ -1349,6 +1364,7 @@ PROCEDURE TParticleEngine.switchAttractionMode(CONST forcedMode: byte);
     if attractionMode=PYRAMID_TARGET then prepareForPyramid;
     if attractionMode=ICOSAHEDRON_TARGET then lissajousParam[0]:=random(length(C_IcosahedronNodes));
     if attractionMode=FIREWORKS_TARGET then commonSaturation:=-10;
+    setLength(fireworkGroups,0);
   end;
 
 end.
