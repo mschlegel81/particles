@@ -143,7 +143,9 @@ end;
 PROCEDURE TSettingsForm.fpsTrackBarChange(Sender: TObject);
   begin
     sharedViewState^.targetFPS:=fpsTrackBar.position;
-    fpsTargetLabel.caption:=intToStr(sharedViewState^.targetFPS);
+    if sharedViewState^.targetFPS>100
+    then fpsTargetLabel.caption:='max'
+    else fpsTargetLabel.caption:=intToStr(sharedViewState^.targetFPS);
   end;
 
 PROCEDURE TSettingsForm.light1TrackBarChange(Sender: TObject);

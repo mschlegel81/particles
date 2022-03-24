@@ -74,7 +74,7 @@ TYPE
     TICKS_PER_SIMULATION_TIME_UNIT:double;
 
     CONSTRUCTOR create;
-    DESTRUCTOR destroy;
+    DESTRUCTOR destroy; override;
     FUNCTION update(VAR modeTicks:longint):single;
     PROCEDURE nextSetup(VAR modeTicks:longint; CONST forcedMode:byte=255);
     PROCEDURE DrawParticles(CONST ParticleList: GLuint; CONST particleRotX,particleRotY:GLfloat);
@@ -86,8 +86,10 @@ TYPE
 
 CONST
   GRID_TARGET=6;
+  ICOSAHEDRON_TARGET=15;
   CLOCK_TARGET=20;
   PYRAMID_TARGET=25;
+  FIREWORKS_TARGET=26;
 
   C_IcosahedronNodes:array[0..11] of TVector3=(
   ( 0, 8.50650808352040E-001, 5.25731112119134E-001),
@@ -102,7 +104,7 @@ CONST
   ( 5.25731112119134E-001, 0,-8.50650808352040E-001),
   (-5.25731112119134E-001, 0,-8.50650808352040E-001),
   ( 0,-8.50650808352040E-001,-5.25731112119134E-001));
-  ATTRACTION_MODE_COUNT=26;
+  ATTRACTION_MODE_COUNT=27;
 
   ATTRACTION_MODE_NAME:array[0..ATTRACTION_MODE_COUNT-1] of string=
   ('Cyclic', //0
@@ -130,13 +132,17 @@ CONST
    'Knot 1', //22
    'Knot 2', //23
    'Mirrored Cyclic', //24
-   'Pyramid');
+   'Pyramid',
+   'Fireworks');
 
 IMPLEMENTATION
 USES math,sysutils,LCLProc;
 CONST
   WHITE:TVector3=(1,1,1);
   FIBFAK=2*pi/sqr((sqrt(5)-1)/2);
+
+FUNCTION accel(CONST v,p,target:TVector3; CONST springConstant,dampingFctor:double):TVector3;
+  begin result:=(target-p)*springConstant+v*(euklideanNorm(v)*dampingFctor); end;
 
 PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
 
@@ -161,7 +167,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
   VAR dt:double;
       fallAndBounceDtSub:double;
       fallAndBounceSubSteps:longint;
-  FUNCTION fallAndBounce(CONST i:longint):boolean;
+  FUNCTION fallAndBounce(CONST i:longint; CONST speedDamingFactor:double=0.5):boolean;
     CONST BLUE  :TVector3=(0,0,1);
     VAR acc:TVector3;
         hitTime:double;
@@ -172,7 +178,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         acc[0]:=0;
         acc[1]:=-1;
         acc[2]:=0;
-        v+=(acc-v*(euklideanNorm(v)*0.5))*fallAndBounceDtSub;
+        v+=(acc-v*(euklideanNorm(v)*speedDamingFactor))*fallAndBounceDtSub;
         if p[1]<=-1 then begin
           p[1]:=-1;
           v[1]:=1;
@@ -209,9 +215,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       end;
       aMax:=sqrt(aMax);
       vMax:=sqrt(vMax);
-      subSteps:=capSubSteps(dt*sqrt(aMax*1000),
-                            dt*     vMax*1000);
-      DebugLn(['Substeps: ',subSteps]);
+      subSteps:=capSubSteps(dt*sqrt(aMax*500),
+                            dt*     vMax*500);
       dtSub:=dt/subSteps;
       for k:=1 to subSteps do begin
         if k>1 then updateA(min(1,(lastModeTicks+dtSub*(k-1)*TICKS_PER_SIMULATION_TIME_UNIT)/MODE_SWITCH_INTERVAL_IN_TICKS));
@@ -234,8 +239,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       else imax:=iMax_;
       for i:=0 to imax do with Particle[i] do begin
         updateA(min(1,lastModeTicks/MODE_SWITCH_INTERVAL_IN_TICKS),i);
-        subSteps:=capSubSteps(dt*sqrt(euklideanNorm(a)*10000),
-                              dt*     euklideanNorm(v)*1000);
+        subSteps:=capSubSteps(dt*sqrt(euklideanNorm(a)*5000),
+                              dt*     euklideanNorm(v)* 500);
         totalSubSteps+=subSteps;
         dtSub:=dt/subSteps;
         for k:=1 to subSteps do begin
@@ -244,7 +249,6 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
           p+=v*dtSub;
         end;
       end;
-      DebugLn(['Substeps: ',round(totalSubSteps/(imax+1))]);
       for i:=imax+1 to length(Particle)-1 do with Particle[i] do fallAndBounce(i);
     end;
 
@@ -395,6 +399,62 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
       end;
     end;
 
+  PROCEDURE fireworks;
+    CONST fallAcceleration:TVector3=(0,-1,0);
+    VAR i,i0,group:longint;
+        middle,sharedSpeed:TVector3;
+        allDown:boolean=false;
+        explodeHeight:double;
+        setupTime:double;
+    begin
+      setupTime:=modeTicks/TICKS_PER_SIMULATION_TIME_UNIT;
+
+      for group:=0 to length(Particle) shr 4 do begin
+
+        explodeHeight:=group/(length(Particle) shr 5);
+
+        i0:=group shl 5;
+
+        sharedSpeed:=ZERO_VECTOR;
+        allDown:=true;
+        for i:=i0 to i0+31 do with Particle[i] do begin
+          allDown:=allDown and (p[1]<-1);
+          sharedSpeed+=v;
+        end;
+
+        if allDown and (setupTime-commonSaturation>0.5) then begin
+          commonSaturation:=setupTime;
+          middle:=randomInSphere;
+          middle[1]:=-1;
+          middle:=vectorOf(0,-1,0);
+
+          sharedSpeed[0]:=2*pi*random;
+          sharedSpeed[2]:=cos(sharedSpeed[0])*0.5;
+          sharedSpeed[0]:=sin(sharedSpeed[1])*0.5;
+          sharedSpeed[1]:=2;
+          for i:=i0 to i0+31 do with Particle[i] do begin
+            p:=middle;
+            v:=sharedSpeed;
+            color:=WHITE;
+          end;
+        end else if (Particle[i0].p[1]>=explodeHeight) and (euklideanNorm(Particle[i0].v-Particle[i0+8].v)<0.1) then begin
+          middle:=hsvColor(random,1,2);
+          for i:=0 to 31 do with Particle[i0+i] do begin
+            v+=randomOnSphere*0.5;
+            color:=middle;
+
+          end;
+        end;
+      end;
+
+      for i:=0 to length(Particle)-1 do with Particle[i] do begin
+        v+=fallAcceleration*dt;
+        p+=v*dt;
+        color-=color*(dt);
+      end;
+
+    end;
+
   begin
     fixBrokenPositions;
     dt:=(modeTicks-lastModeTicks)/TICKS_PER_SIMULATION_TIME_UNIT;
@@ -455,8 +515,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         updateColors_sheet(modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS,dt);
       end;
       14: fallingFountain;
-      15: begin
-        moveTowardsTargetsNoninteracting(@updateA_icosahedron,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));
+      ICOSAHEDRON_TARGET: begin
+        moveTowardsTargetsNoninteracting(@updateA_icosahedron);//,round(length(Particle)*modeTicks/MODE_SWITCH_INTERVAL_IN_TICKS*2));
         updateColors_byRadius;
       end;
       16: begin
@@ -491,6 +551,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
         updateColors_byRadius;
       end;
       PYRAMID_TARGET: fallingPyramid;
+      FIREWORKS_TARGET: fireworks;
     end;
     lastModeTicks:=modeTicks;
   end;
@@ -504,9 +565,6 @@ FUNCTION TParticleEngine.capSubSteps(CONST proposedSubSteps:double; CONST otherP
     then result:=HARD_UPPER_BOUND
     else result:=ceil(max(proposedSubSteps,otherProposedSubSteps));
   end;
-
-FUNCTION accel(CONST v,p,target:TVector3; CONST springConstant,dampingFctor:double):TVector3;
-  begin result:=(target-p)*springConstant+v*(euklideanNorm(v)*dampingFctor); end;
 
 PROCEDURE TParticleEngine.updateA_cyclic(CONST progress: double);
   VAR i,k:longint;
@@ -575,7 +633,7 @@ PROCEDURE TParticleEngine.updateA_groupedCyclic(CONST progress: double);
 
 PROCEDURE TParticleEngine.updateA_cube(CONST progress: double;
   CONST particleIndex: longint);
-  CONST C_cubeNodes:array[0..7] of TVector3=((-1,-1,-1),(-1,-1,1),(1,-1,-1),(1,-1,1),(-1,1,-1),(-1,1,1),(1,1,-1),(1,1,1));
+  CONST C_CubeNodes:array[0..7] of TVector3=((-1,-1,-1),(-1,-1,1),(1,-1,-1),(1,-1,1),(-1,1,-1),(-1,1,1),(1,1,-1),(1,1,1));
         C_cubeTrip1:array[0..7] of longint=(0,1,3,2,6,7,5,4);
         C_cubeTrip2:array[0..7] of longint=(0,2,6,4,5,7,3,1);
         C_cubeTrip3:array[0..7] of longint=(0,4,5,1,3,7,6,2);
@@ -590,12 +648,12 @@ PROCEDURE TParticleEngine.updateA_cube(CONST progress: double;
       k:=trunc(tau);
       tau:=frac(tau);
       case subCube of
-        0: targetPosition:=(C_cubeNodes[C_cubeTrip1[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip1[(k+1) and 7]]*   tau)*0.8;
-        1: targetPosition:=(C_cubeNodes[C_cubeTrip2[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip2[(k+1) and 7]]*   tau)*0.9;
-      else targetPosition:=(C_cubeNodes[C_cubeTrip3[ k    and 7]]*(1-tau)
-                           +C_cubeNodes[C_cubeTrip3[(k+1) and 7]]*   tau);
+        0: targetPosition:=(C_CubeNodes[C_cubeTrip1[ k    and 7]]*(1-tau)
+                           +C_CubeNodes[C_cubeTrip1[(k+1) and 7]]*   tau)*0.8;
+        1: targetPosition:=(C_CubeNodes[C_cubeTrip2[ k    and 7]]*(1-tau)
+                           +C_CubeNodes[C_cubeTrip2[(k+1) and 7]]*   tau)*0.9;
+      else targetPosition:=(C_CubeNodes[C_cubeTrip3[ k    and 7]]*(1-tau)
+                           +C_CubeNodes[C_cubeTrip3[(k+1) and 7]]*   tau);
       end;
       a:=accel(v,p,targetPosition,20,-20);
     end;
@@ -656,8 +714,7 @@ PROCEDURE TParticleEngine.updateA_swirl(CONST progress: double;
     end;
   end;
 
-PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double;
-  CONST particleIndex: longint);
+PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double; CONST particleIndex: longint);
   CONST C_IcosahedronEdges:array[0..29,0..1] of byte=
     ((8,10),
      (5,7),
@@ -666,21 +723,22 @@ PROCEDURE TParticleEngine.updateA_icosahedron(CONST progress: double;
      (3,5),(5,1),(1,3),(3,0),(0,2),(2,8),(8,0),(0,4),
      (0,1),(1,2),(2,6),(6,9),(9,10),(10,11),(11,5),(5,6),(6,11),(11,7),(7,10),(10,4),(4,7),(7,3),(3,4),(4,8),(8,9),(9,11));
   VAR k:longint;
-      tau:double;
-      targetPosition:TVector3;
+      tau,h:double;
+      targetPosition,d:TVector3;
   begin
+    h:=-1+3*progress;
+    d:=C_IcosahedronNodes[lissajousParam[0]];
     with Particle[particleIndex] do begin
       tau:=(particleIndex/length(Particle));
-      if tau<progress*2 then begin
-        tau*=length(C_IcosahedronEdges);
-        k:=trunc(tau);
-        tau:=frac(tau);
-        k:=k mod length(C_IcosahedronEdges);
-        targetPosition:=C_IcosahedronNodes[C_IcosahedronEdges[k,0]]*(1-tau)+
-                        C_IcosahedronNodes[C_IcosahedronEdges[k,1]]*(  tau);
-      end else
-        targetPosition:=C_IcosahedronNodes[11];
-      a:=accel(v,p,targetPosition,10,-10);
+      tau*=length(C_IcosahedronEdges);
+      k:=trunc(tau);
+      tau:=frac(tau);
+      k:=k mod length(C_IcosahedronEdges);
+      targetPosition:=C_IcosahedronNodes[C_IcosahedronEdges[k,0]]*(1-tau)+
+                      C_IcosahedronNodes[C_IcosahedronEdges[k,1]]*(  tau);
+      tau:=targetPosition*d;
+      if tau>h then targetPosition-=d*(tau-h);
+      a:=accel(v,p,targetPosition,30,-30);
     end;
   end;
 
@@ -936,7 +994,7 @@ PROCEDURE TParticleEngine.updateA_bicyclic(CONST progress: double);
       r2:=euklideanNorm(tgt2-p);
 
       if r1>r2 then targetPosition:=tgt1 else targetPosition:=tgt2;
-      a:=accel(v,p,targetPosition,10,-10)-p*0.01;
+      a:=accel(v,p,targetPosition,10,-10);
     end;
   end;
 
@@ -1229,6 +1287,7 @@ FUNCTION TParticleEngine.loadFromStream(VAR stream: T_bufferedInputStreamWrapper
     TICKS_PER_SIMULATION_TIME_UNIT:=stream.readDouble;
     readAttractionMode:=stream.readByte;
     if lockCurrentSetup then switchAttractionMode(readAttractionMode);
+    result:=stream.allOkay;
   end;
 
 PROCEDURE TParticleEngine.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
@@ -1288,6 +1347,8 @@ PROCEDURE TParticleEngine.switchAttractionMode(CONST forcedMode: byte);
     attractionMode:=m;
     if attractionMode=GRID_TARGET then calculateGridPositions;
     if attractionMode=PYRAMID_TARGET then prepareForPyramid;
+    if attractionMode=ICOSAHEDRON_TARGET then lissajousParam[0]:=random(length(C_IcosahedronNodes));
+    if attractionMode=FIREWORKS_TARGET then commonSaturation:=-10;
   end;
 
 end.

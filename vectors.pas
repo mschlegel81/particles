@@ -19,6 +19,7 @@ OPERATOR -(CONST x,y:TIntVec3):TIntVec3;
 FUNCTION sumOfSquares(CONST x:TVector3):TGLfloat;
 FUNCTION euklideanNorm(CONST x:TVector3):TGLfloat;
 FUNCTION euklideanNorm(CONST x:TIntVec3):TGLfloat;
+FUNCTION cross(CONST x,y:TVector3):TVector3;
 FUNCTION hsvColor(h,s,v:single):TVector3;
 
 FUNCTION roundVector(CONST v:TVector3):TIntVec3;
@@ -102,6 +103,13 @@ FUNCTION euklideanNorm(CONST x:TVector3):TGLfloat;
 FUNCTION euklideanNorm(CONST x:TIntVec3):TGLfloat;
   begin
     result:=sqrt(x[0]*x[0]+x[1]*x[1]+x[2]*x[2]);
+  end;
+
+FUNCTION cross(CONST x,y:TVector3):TVector3;
+  begin
+    result[0]:=x[1]*y[2]-x[2]*y[1];
+    result[1]:=x[2]*y[0]-x[0]*y[2];
+    result[2]:=x[0]*y[1]-x[1]*y[0];
   end;
 
 FUNCTION hsvColor(h,s,v:single):TVector3;

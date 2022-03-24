@@ -82,6 +82,7 @@ TYPE
   end;
 
 IMPLEMENTATION
+USES LCLProc;
 
 { T_viewState }
 
@@ -308,8 +309,9 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
   begin
     inc(frameCount);
     tickDelta:=OpenGLControl.FrameDiffTimeInMSecs;
-    inc(modeTicks     ,round(TARGET_TICKS_PER_FRAME));
+    inc(modeTicks     ,tickDelta);
     inc(LastFrameTicks,tickDelta);
+    DebugLn(['Tick delta: ',tickDelta]);
     if (LastFrameTicks>=1000) then begin
       measuredFps:=frameCount*1000/LastFrameTicks;
       dec(LastFrameTicks,1000);
@@ -369,7 +371,9 @@ PROCEDURE T_viewState.setTargetFPS(CONST value: longint);
   begin
     if value<1 then exit;
     TARGET_FPS:=value;
-    TARGET_TICKS_PER_FRAME:=1000/value;
+    if TARGET_FPS>100
+    then TARGET_TICKS_PER_FRAME:=0
+    else TARGET_TICKS_PER_FRAME:=1000/value;
   end;
 
 PROCEDURE T_viewState.setBallSize(CONST value: single);
