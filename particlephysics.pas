@@ -936,8 +936,8 @@ PROCEDURE TParticleEngine.updateCol_vogler(CONST progress, dt: double);
   end;
 
 PROCEDURE TParticleEngine.updateA_CIRCL(CONST progress: double);
-  CONST spring=5;
-        ATTENUATION=-2;
+  CONST spring=20;
+        ATTENUATION=-5;
   VAR i,k:longint;
       tau:double;
       targetPosition:TVector3;
@@ -950,7 +950,7 @@ PROCEDURE TParticleEngine.updateA_CIRCL(CONST progress: double);
       targetPosition[2]:=sin(pi/3+lissajousParam[2]*tau);
       with Particle[k] do a:=accel(v,p,targetPosition,spring,ATTENUATION);
       for i:=k+1 to k+31 do with Particle[i] do begin
-        targetPosition:=Particle[i-1].p *progress+targetPosition*(1-progress);
+        targetPosition:=Particle[i-1].p*0.15+targetPosition*0.85;
         a:=accel(v,p,targetPosition,spring,ATTENUATION)
       end;
       k+=32
@@ -1254,6 +1254,7 @@ CONSTRUCTOR TParticleEngine.create;
       accept:boolean;
       temp:TVector3;
   begin
+    randomize;
     MODE_SWITCH_INTERVAL_IN_TICKS:=20000;
     TICKS_PER_SIMULATION_TIME_UNIT:=1000;
     lockCurrentSetup:=false;
