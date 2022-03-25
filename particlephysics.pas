@@ -433,17 +433,44 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: double);
       end;
 
     PROCEDURE explodeGroup(CONST groupIndex:longint);
-      VAR a,dv:TVector3;
+      VAR a,b,v0Normed,dv:TVector3;
           k:longint;
+          j:longint=0;
+          jMax:longint;
+          starDiv:longint;
           color:TVector3;
+
+          explodeMode:byte;
       begin
         a:=randomOnSphere;
-        color:=hsvColor(random,1,1);
+        b:=cross(a,randomInSphere); b*=1/euklideanNorm(b);
+
+        v0Normed:=Particle[fireworkGroups[groupIndex][0]].v;
+        v0Normed*=1/euklideanNorm(v0Normed);
+        jMax:=length(fireworkGroups[groupIndex]);
+        starDiv:=max(3,min(17,trunc(jMax/5)));
+        color:=hsvColor(random,1,2);
+
+        explodeMode:=random(5);
+
         for k in fireworkGroups[groupIndex] do begin
-          dv:=randomOnSphere;
-          dv-=a*(dv*a);
+          case explodeMode of
+            0: dv:=(a*sin(2*pi/starDiv*j)
+                   +b*cos(2*pi/starDiv*j)
+                   +v0Normed)*random;
+            1: begin
+                 dv:=randomOnSphere;
+                 dv-=a*(dv*a);
+               end;
+            2: dv:=randomOnSphere;
+            3: dv:=C_IcosahedronNodes[j mod length(C_IcosahedronNodes)]*(j/jMax);
+            4: dv:=a*sin(2*pi/jMax*j)
+                  +b*cos(2*pi/jMax*j);
+          end;
+
           Particle[k].v+=dv;
           Particle[k].color:=color;
+          inc(j);
         end;
         setLength(fireworkGroups[groupIndex],0);
       end;
@@ -451,6 +478,8 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: double);
     VAR setupTime:double;
         j:longint=0;
         i:longint;
+        freeFalling:array[0..length(Particle)-1] of boolean;
+
     begin
       setupTime:=modeTicks/TICKS_PER_SIMULATION_TIME_UNIT;
       if (setupTime-commonSaturation>0.5) and formNewFallingGroup then commonSaturation:=setupTime+random;
@@ -460,12 +489,17 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: double);
         else begin fireworkGroups[j]:=fireworkGroups[i]; inc(j); end;
       end;
       setLength(fireworkGroups,j);
-      for j:=0 to length(fireworkGroups)-1 do for i in fireworkGroups[j] do Particle[i].v-=fallAcceleration*(2*dt);
-
-      for i:=0 to length(Particle)-1 do with Particle[i] do begin
-        v+=fallAcceleration*dt;
+      for i:=0 to length(Particle)-1 do freeFalling[i]:=true;
+      for j:=0 to length(fireworkGroups)-1 do for i in fireworkGroups[j] do with Particle[i] do begin
+        v-=fallAcceleration*dt;
         p+=v*dt;
-        color-=color*(dt);
+        freeFalling[i]:=false;
+      end;
+
+      for i:=0 to length(Particle)-1 do if freeFalling[i] then with Particle[i] do begin
+        v+=(fallAcceleration-v*(2*vectors.sumOfSquares(v))) *dt;
+        p+=v*dt;
+        color-=color*(dt*0.5);
       end;
 
     end;
@@ -676,15 +710,17 @@ PROCEDURE TParticleEngine.updateA_cube(CONST progress: double;
 
 PROCEDURE TParticleEngine.updateA_heart(CONST progress: double;
   CONST particleIndex: longint);
-  VAR tau:double;
+  VAR tau,pr:double;
+
       tp :TVector3;
   begin
+    pr:=min(1,progress*1.2);
     with Particle[particleIndex] do begin
-      tau:=(particleIndex/length(Particle)+progress)*2*pi;
-      tp [2]:= (0.75  *sin(tau)-0.25  *sin(3*tau));
-      tp [1]:= (0.8125*cos(tau)-0.3125*  cos(2*tau)-0.125*  cos(3*tau)-0.0625*  cos(4*tau));
+      tau:=(particleIndex/length(Particle)+2*progress)*2*pi;
+      tp [2]:=0.75  *sin(tau)-pr*0.25  *sin(3*tau);
+      tp [1]:=0.8125*cos(tau)-pr*(0.3125*cos(2*tau)+pr*(0.125*cos(3*tau)+0.0625*cos(4*tau)));
       tp [0]:=0;
-      a:=accel(v,p,tp+colorDelta[particleIndex]*(1-progress),50,-20)
+      a:=accel(v,p,tp+colorDelta[particleIndex]*(1-pr),50,-20)
     end;
   end;
 
@@ -1144,7 +1180,7 @@ PROCEDURE TParticleEngine.updateA_X2(CONST progress: double);
       a*=cos(p[0]*10)/(sqr(a[0])+sqr(a[1]));
       a[2]:=sin(p[1]);
       a-=p;
-      a-=v*(1-sqr(2*progress-1));
+      a-=v*(0.4);
       a*=5;
     end;
   end;
