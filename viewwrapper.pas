@@ -15,35 +15,42 @@ USES
 TYPE
   T_viewState=object(T_serializable)
     private
-      //OpenGL variables
-      lightamb,
-      lightdif,
-      lightpos: array [0..3] of GLfloat;
-      ParticleList: GLuint;
       OpenGLControl: TOpenGLControl;
       AreaInitialized: boolean;
-      flatShading_:boolean;
-      //View rotation:
+      lighting:record
+        ambient,
+        diffuse,
+        specular,
+        position: array [0..3] of GLfloat;
+      end;
+      geometry:record
+        flatShading_:boolean;
+        ballRefinement_:byte;
+        ballSize_:single;
+        hemispheres_:boolean;
+        ParticleList: GLuint;
+      end;
       rotation:record
         rx,ry: single;
         lockX,lockY:boolean;
       end;
-
-      ballRefinement_:byte;
-      ballSize_:single;
-      hemispheres_:boolean;
-
       //Frame rate control
-      frameTimer    : TEpikTimer;
-      frameCount    : integer;
-      LastFrameTicks: double;
-      sleepTimeMilliseconds:double;
-      TARGET_FPS:longint;
-      TARGET_TICKS_PER_FRAME:double;
-      measuredFps:double;
+      frameRateControl:record
+        frameTimer            : TEpikTimer;
+        frameCount            : integer;
+        LastFrameTicks        : double;
+        averageFrameTicks     : double;
+        sleepTimeMilliseconds : double;
+        TARGET_FPS            : longint;
+        TARGET_TICKS_PER_FRAME: double;
+        measuredFps:double;
+      end;
       //Mouse handling
-      mouseX,mouseY : longint;
-      mouseIsDown   : byte;
+      mouse:record
+        mouseX,
+        mouseY : longint;
+        isDown : (NO,leftDown,rightDown);
+      end;
 
       PROCEDURE viewMouseDown(Sender: TObject; button: TMouseButton; Shift: TShiftState; X, Y: integer);
       PROCEDURE viewMouseMove(Sender: TObject; Shift: TShiftState; X,Y: integer);
@@ -58,6 +65,8 @@ TYPE
       PROCEDURE setLight1Brightness(CONST value:TGLfloat);
       FUNCTION getLight2Brightness:TGLfloat;
       PROCEDURE setLight2Brightness(CONST value:TGLfloat);
+      FUNCTION getLight3Brightness:TGLfloat;
+      PROCEDURE setLight3Brightness(CONST value:TGLfloat);
       PROCEDURE setFlatShading(CONST value:boolean);
       PROCEDURE setHemispheres(CONST value:boolean);
     public
@@ -67,14 +76,15 @@ TYPE
 
       CONSTRUCTOR create(control:TOpenGLControl);
 
-      PROPERTY targetFPS:longint read TARGET_FPS write setTargetFPS;
-      PROPERTY ballSize:single read ballSize_ write setBallSize;
-      PROPERTY ballRefinement:byte read ballRefinement_ write setBallRefinement;
-      PROPERTY getFps:double read measuredFps;
+      PROPERTY targetFPS:longint read frameRateControl.TARGET_FPS write setTargetFPS;
+      PROPERTY ballSize:single read geometry.ballSize_ write setBallSize;
+      PROPERTY ballRefinement:byte read geometry.ballRefinement_ write setBallRefinement;
+      PROPERTY getFps:double read frameRateControl.measuredFps;
       PROPERTY light1Brightness:TGLfloat read getLight1Brightness write setLight1Brightness;
       PROPERTY light2Brightness:TGLfloat read getLight2Brightness write setLight2Brightness;
-      PROPERTY flatShading:boolean read flatShading_ write setFlatShading;
-      PROPERTY hemispheres:boolean read hemispheres_ write setHemispheres;
+      PROPERTY light3Brightness:TGLfloat read getLight3Brightness write setLight3Brightness;
+      PROPERTY flatShading:boolean read geometry.flatShading_ write setFlatShading;
+      PROPERTY hemispheres:boolean read geometry.hemispheres_ write setHemispheres;
 
       PROPERTY lockXRotation: boolean read rotation.lockX write rotation.lockX;
       PROPERTY lockYRotation: boolean read rotation.lockY write rotation.lockY;
@@ -92,14 +102,18 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
   begin
     OpenGLControl:=control;
     ParticleEngine:=TParticleEngine.create;
-    sleepTimeMilliseconds:=0;
-    frameTimer:=TEpikTimer.create(nil);
-    frameTimer.clear;
-    frameTimer.start;
+    with frameRateControl do begin
+      sleepTimeMilliseconds:=0;
+      averageFrameTicks:=0; //Expect first frame to take no time at all
+      frameTimer:=TEpikTimer.create(nil);
+      frameTimer.clear;
+    end;
 
-    mouseX :=0;
-    mouseY :=0;
-    mouseIsDown:=0;
+    with mouse do begin
+      mouseX:=0;
+      mouseY:=0;
+      isDown:=NO;
+    end;
 
     OpenGLControl.OnMouseDown:=@viewMouseDown;
     OpenGLControl.OnMouseMove:=@viewMouseMove;
@@ -107,27 +121,36 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
     OpenGLControl.OnResize   :=@viewResize;
     OpenGLControl.OnPaint    :=@viewPaint;
 
-    {ambient color}
-    lightamb[0]:=0.2;
-    lightamb[1]:=0.2;
-    lightamb[2]:=0.2;
-    lightamb[3]:=0.0;
-    {diffuse color}
-    lightdif[0]:=1;
-    lightdif[1]:=1;
-    lightdif[2]:=1;
-    lightdif[3]:=0.0;
+    with lighting do begin
+      {ambient color}
+      ambient[0]:=0.2;
+      ambient[1]:=0.2;
+      ambient[2]:=0.2;
+      ambient[3]:=0.0;
+      {diffuse color}
+      diffuse[0]:=1;
+      diffuse[1]:=1;
+      diffuse[2]:=1;
+      diffuse[3]:=0.0;
+      {diffuse color}
+      specular[0]:=1;
+      specular[1]:=1;
+      specular[2]:=1;
+      specular[3]:=0.0;
+    end;
 
+    with geometry do begin
+      ballRefinement_:=0;
+      ballSize_:=0.013;
+      flatShading_:=false;
+      hemispheres_:=false;
+    end;
     setTargetFPS(60);
-    ballRefinement_:=0;
-    ballSize_:=0.013;
-    flatShading_:=false;
-    hemispheres_:=false;
   end;
 
 FUNCTION T_viewState.getSerialVersion: dword;
   begin
-    result:=3;
+    result:=4;
   end;
 
 FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): boolean;
@@ -140,6 +163,7 @@ FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): b
     setTargetFPS(stream.readLongint);
     light1Brightness:=stream.readSingle;
     light2Brightness:=stream.readSingle;
+    light3Brightness:=stream.readSingle;
     with rotation do begin
       lockX:=stream.readBoolean;
       if lockX then rx:=stream.readSingle;
@@ -159,6 +183,7 @@ PROCEDURE T_viewState.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
     stream.writeLongint(targetFPS);
     stream.writeSingle(light1Brightness);
     stream.writeSingle(light2Brightness);
+    stream.writeSingle(light3Brightness);
     with rotation do begin
       stream.writeBoolean(lockX);
       if lockX then stream.writeSingle(rx);
@@ -170,36 +195,39 @@ PROCEDURE T_viewState.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
 
 DESTRUCTOR T_viewState.destroy;
   begin
-    FreeAndNil(frameTimer);
-    FreeAndNil(ParticleEngine);
+    FreeAndNil(frameRateControl.frameTimer);
+    ParticleEngine.destroy;
   end;
 
 PROCEDURE T_viewState.viewMouseDown(Sender: TObject; button: TMouseButton;
   Shift: TShiftState; X, Y: integer);
   begin
-    mouseX:=x;
-    mouseY:=y;
-    case button of
-      mbLeft : mouseIsDown:=1;
-      mbRight: mouseIsDown:=2;
+    with mouse do begin
+      mouseX:=x;
+      mouseY:=y;
+      case button of
+        mbLeft : isDown:=leftDown;
+        mbRight: isDown:=rightDown;
+      end;
     end;
   end;
 
-PROCEDURE T_viewState.viewMouseMove(Sender: TObject; Shift: TShiftState; X,
-  Y: integer);
+PROCEDURE T_viewState.viewMouseMove(Sender: TObject; Shift: TShiftState; X,Y: integer);
   begin
-    if mouseIsDown<>1 then exit;
-    rotation.ry+=(x-mouseX)/OpenGLControl.width*180;
-    rotation.rx+=(y-mouseY)/OpenGLControl.height*180;
-    mouseX:=x;
-    mouseY:=y;
+    if mouse.isDown<>leftDown then exit;
+    with mouse do begin
+      rotation.ry+=(x-mouseX)/OpenGLControl.width*180;
+      rotation.rx+=(y-mouseY)/OpenGLControl.height*180;
+      mouseX:=x;
+      mouseY:=y;
+    end;
   end;
 
 PROCEDURE T_viewState.viewMouseUp(Sender: TObject; button: TMouseButton;
   Shift: TShiftState; X, Y: integer);
   begin
-    if mouseIsDown=2 then ParticleEngine.nextSetup(modeTicks);
-    mouseIsDown:=0;
+    if mouse.isDown=rightDown then ParticleEngine.nextSetup(modeTicks);
+    mouse.isDown:=NO;
   end;
 
 PROCEDURE T_viewState.viewResize(Sender: TObject);
@@ -209,7 +237,6 @@ PROCEDURE T_viewState.viewResize(Sender: TObject);
   end;
 
 PROCEDURE T_viewState.viewPaint(Sender: TObject);
-
   PROCEDURE initializeArea;
     PROCEDURE addFace(CONST p0,p1,p2:TVector3; CONST refine:byte);
       CONST FINER_NODE:array[0..3,0..2] of byte = ((0,3,5),(3,1,4),(3,4,5),(5,4,2));
@@ -230,13 +257,13 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
         if refine=0 then begin
           commonNormal:=p[0]+p[1]+p[2];
           commonNormal*=1/euklideanNorm(commonNormal);
-          if (commonNormal[2]>-0.05) or not(hemispheres_) then for j:=0 to 2 do begin
+          if (commonNormal[2]>-0.05) or not(geometry.hemispheres_) then for j:=0 to 2 do begin
             n:=p[j];
             n*=1/euklideanNorm(n);
-            if flatShading_
+            if geometry.flatShading_
             then glNormal3f(commonNormal[0],commonNormal[1],commonNormal[2])
             else glNormal3f(n[0],n[1],n[2]);
-            n*=ballSize_;
+            n*=geometry.ballSize_;
             glVertex3f(n[0],n[1],n[2]);
           end;
         end else begin
@@ -257,57 +284,47 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
     VAR n:TVector3;
         i:longint;
     begin
-      //if GLInitialized then exit;
-      //GLInitialized:=true;
-
       {diffuse position}
       n:=vectorOf(1,2,0); n*=1/euklideanNorm(n);
-      lightpos[0]:=n[0];
-      lightpos[1]:=n[1];
-      lightpos[2]:=n[2];
-      lightpos[3]:=0.0;
+      with lighting do begin
+        position[0]:=n[0];
+        position[1]:=n[1];
+        position[2]:=n[2];
+        position[3]:=0.0;
+        glLightfv(GL_LIGHT0,GL_AMBIENT ,ambient);
+        glLightfv(GL_LIGHT0,GL_DIFFUSE ,diffuse);
+        glLightfv(GL_LIGHT0,GL_SPECULAR,specular);
+        glEnable (GL_LIGHT0);
 
-      glLightfv(GL_LIGHT0,GL_AMBIENT ,lightamb);
-      if lightamb[0]>0
-      then glEnable (GL_LIGHT0)
-      else glDisable(GL_LIGHT0);
+        glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
+        glEnable( GL_BLEND );
+        glEnable(GL_COLOR_MATERIAL);
+        glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+        glClearColor(0.0,0.0,0.0,1.0);
+      end;
 
-      glLightfv(GL_LIGHT1,GL_DIFFUSE ,lightdif);
-      glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
-      if lightdif[0]>0
-      then glEnable (GL_LIGHT1)
-      else glDisable(GL_LIGHT1);
-
-      glClearColor(0.0,0.0,0.0,0.1);    // sets background color
       glClearDepth(1.0);
       glDepthFunc(GL_LEQUAL);           // the type of depth test to do
       glEnable(GL_DEPTH_TEST);          // enables depth testing
-      if flatShading_
+      if geometry.flatShading_
       then glShadeModel(GL_FLAT)
       else glShadeModel(GL_SMOOTH);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE);
-
-      //glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
-      glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, GL_TRUE);
-
       glHint(GL_PERSPECTIVE_CORRECTION_HINT,GL_NICEST);
-      glEnable( GL_BLEND );
-      glEnable(GL_COLOR_MATERIAL);
-      glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
 
-      ParticleList:=glGenLists(1);
-
-      glColor3f(1,0.5,0);
-      glNewList(ParticleList, GL_COMPILE);
-        glBegin(GL_TRIANGLES);
-          for i:=0 to 19 do
-            addFace(C_IcosahedronNodes[C_icosahedronFaces[i,0]],
-                    C_IcosahedronNodes[C_icosahedronFaces[i,1]],
-                    C_IcosahedronNodes[C_icosahedronFaces[i,2]],
-                    ballRefinement_);
-         glEnd;
-      glEndList;
-      glEnable(GL_LIGHTING);
+      with geometry do begin
+        ParticleList:=glGenLists(1);
+        glColor3f(1,0.5,0);
+        glNewList(ParticleList, GL_COMPILE);
+          glBegin(GL_TRIANGLES);
+            for i:=0 to 19 do
+              addFace(C_IcosahedronNodes[C_icosahedronFaces[i,0]],
+                      C_IcosahedronNodes[C_icosahedronFaces[i,1]],
+                      C_IcosahedronNodes[C_icosahedronFaces[i,2]],
+                      ballRefinement_);
+           glEnd;
+        glEndList;
+        glEnable(GL_LIGHTING);
+      end;
 
       glMatrixMode (GL_PROJECTION);
       glLoadIdentity ();
@@ -325,34 +342,39 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       tickDelta: double;
       sleepMs:longint;
   begin
-    inc(frameCount);
-    tickDelta:=frameTimer.elapsed*1000;
-    frameTimer.clear;
-    frameTimer.start;
-    modeTicks     +=tickDelta;
-    LastFrameTicks+=tickDelta;
-    if (LastFrameTicks>=1000) then begin
-      measuredFps:=frameCount*1000/LastFrameTicks;
-      LastFrameTicks-=1000;
-      frameCount:=0;
+    with frameRateControl do begin
+      tickDelta:=frameTimer.elapsed*1000;
+      frameTimer.clear;
+      frameTimer.start;
+      averageFrameTicks:=averageFrameTicks*0.9+tickDelta*0.1;
+      modeTicks        +=averageFrameTicks;
+      //Frame rate counting:
+      inc(frameCount);
+      LastFrameTicks+=tickDelta;
+      if (LastFrameTicks>=1000) then begin
+        measuredFps:=1E3*frameCount/LastFrameTicks;
+        LastFrameTicks-=1000;
+        frameCount:=0;
+      end;
     end;
 
     if OpenGLControl.MakeCurrent then begin
       if not AreaInitialized then initializeArea;
       timer:=ParticleEngine.update(modeTicks);
 
-      sleepTimeMilliseconds+=(TARGET_TICKS_PER_FRAME-tickDelta);
-      if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
-      sleepMs:=trunc(sleepTimeMilliseconds);
-      sleepTimeMilliseconds:=frac(sleepTimeMilliseconds);
-      if sleepMs>0 then begin
-        sleep(sleepMs);
-        DebugLn(['ST ',sleepMs,' rest: ',sleepTimeMilliseconds]);
+      with frameRateControl do begin
+        sleepTimeMilliseconds+=TARGET_TICKS_PER_FRAME-averageFrameTicks;
+        if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
+        sleepMs:=trunc(sleepTimeMilliseconds);
+        if sleepMs>0 then begin
+          sleepTimeMilliseconds-=sleepMs;
+          sleep(sleepMs);
+          DebugLn(['ST ',sleepMs,' rest: ',sleepTimeMilliseconds,' Timing: ',tickDelta,' ',averageFrameTicks,' ',TARGET_TICKS_PER_FRAME]);
+        end;
       end;
-      sleepTimeMilliseconds:=frac(sleepTimeMilliseconds);
 
       //Update rotation angles
-      if (mouseIsDown<>1) then with rotation do begin
+      if (mouse.isDown<>leftDown) then with rotation do begin
         if not(lockY) then begin
           if ParticleEngine.currentAttractionMode=CLOCK_TARGET
           then ry-=ry*timer
@@ -377,18 +399,17 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glTranslatef(0,0,-5);
       glScalef(ax,ay,az);
       //Rotate
-      glRotatef(rotation.rx,0.1,0.0,0.0);
+      glRotatef(rotation.rx,1.0,0.0,0.0);
       glRotatef(rotation.ry,0.0,1.0,0.0);
       //Draw
-      glLightfv(GL_LIGHT0,GL_POSITION,lightpos);
-      glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
+      glLightfv(GL_LIGHT0,GL_POSITION,lighting.position);
       glEnable(GL_BLEND);
       glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE);
       glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
       glMaterialf(GL_FRONT, GL_SHININESS, 80.0);
-      if hemispheres_
-      then ParticleEngine.DrawParticles(ParticleList,-rotation.rx,-rotation.ry)
-      else ParticleEngine.DrawParticles(ParticleList,           0,           0);
+      if geometry.hemispheres_
+      then ParticleEngine.DrawParticles(geometry.ParticleList,-rotation.rx,-rotation.ry)
+      else ParticleEngine.DrawParticles(geometry.ParticleList,           0,           0);
       glDisable(GL_BLEND);
       glPopMatrix;
       OpenGLControl.SwapBuffers;
@@ -397,64 +418,85 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
 
 PROCEDURE T_viewState.setTargetFPS(CONST value: longint);
   begin
-    if value<1 then exit;
-    TARGET_FPS:=value;
-    if TARGET_FPS>100
-    then TARGET_TICKS_PER_FRAME:=0
-    else TARGET_TICKS_PER_FRAME:=1000/value;
+    if value>=1 then with frameRateControl do begin
+      TARGET_FPS:=value;
+      if TARGET_FPS>100
+      then TARGET_TICKS_PER_FRAME:=0
+      else TARGET_TICKS_PER_FRAME:=1000/value;
+      sleepTimeMilliseconds:=0;
+    end;
   end;
 
 PROCEDURE T_viewState.setBallSize(CONST value: single);
   begin
-    if value=ballSize_ then exit;
-    ballSize_:=value;
+    if value=geometry.ballSize_ then exit;
+    geometry.ballSize_:=value;
     AreaInitialized:=false;
   end;
 
 PROCEDURE T_viewState.setBallRefinement(CONST value: byte);
   begin
-    if value=ballRefinement_ then exit;
-    ballRefinement_:=value;
+    if value=geometry.ballRefinement_ then exit;
+    geometry.ballRefinement_:=value;
     AreaInitialized:=false;
   end;
 
 FUNCTION T_viewState.getLight1Brightness: TGLfloat;
   begin
-    result:=lightamb[0];
+    result:=lighting.ambient[0];
   end;
 
 PROCEDURE T_viewState.setLight1Brightness(CONST value: TGLfloat);
   begin
-    lightamb[0]:=value;
-    lightamb[1]:=value;
-    lightamb[2]:=value;
+    with lighting do begin
+      ambient[0]:=value;
+      ambient[1]:=value;
+      ambient[2]:=value;
+    end;
     AreaInitialized:=false;
   end;
 
 FUNCTION T_viewState.getLight2Brightness: TGLfloat;
   begin
-    result:=lightdif[0];
+    result:=lighting.diffuse[0];
   end;
 
 PROCEDURE T_viewState.setLight2Brightness(CONST value: TGLfloat);
   begin
-    lightdif[0]:=value;
-    lightdif[1]:=value;
-    lightdif[2]:=value;
+    with lighting do begin
+      diffuse[0]:=value;
+      diffuse[1]:=value;
+      diffuse[2]:=value;
+    end;
+    AreaInitialized:=false;
+  end;
+
+FUNCTION T_viewState.getLight3Brightness: TGLfloat;
+  begin
+    result:=lighting.specular[0];
+  end;
+
+PROCEDURE T_viewState.setLight3Brightness(CONST value: TGLfloat);
+  begin
+    with lighting do begin
+      specular[0]:=value;
+      specular[1]:=value;
+      specular[2]:=value;
+    end;
     AreaInitialized:=false;
   end;
 
 PROCEDURE T_viewState.setFlatShading(CONST value: boolean);
   begin
-    if value=flatShading_ then exit;
-    flatShading_:=value;
+    if value=geometry.flatShading_ then exit;
+    geometry.flatShading_:=value;
     AreaInitialized:=false;
   end;
 
 PROCEDURE T_viewState.setHemispheres(CONST value:boolean);
   begin
-    if value=hemispheres_ then exit;
-    hemispheres_:=value;
+    if value=geometry.hemispheres_ then exit;
+    geometry.hemispheres_:=value;
     AreaInitialized:=false;
   end;
 

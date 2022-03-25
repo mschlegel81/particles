@@ -41,24 +41,24 @@ object SettingsForm: TSettingsForm
   end
   object Panel1: TPanel
     Left = 0
-    Height = 387
+    Height = 412
     Top = 0
     Width = 300
     AutoSize = True
-    ClientHeight = 387
+    ClientHeight = 412
     ClientWidth = 300
     Constraints.MinWidth = 300
     TabOrder = 0
     Visible = False
     object GroupBox1: TGroupBox
       Left = 1
-      Height = 191
+      Height = 216
       Top = 1
       Width = 298
       Align = alTop
       AutoSize = True
       Caption = 'Display'
-      ClientHeight = 171
+      ClientHeight = 196
       ClientWidth = 294
       Font.CharSet = ANSI_CHARSET
       Font.Color = clWhite
@@ -261,7 +261,7 @@ object SettingsForm: TSettingsForm
         Top = 121
         Width = 190
         Frequency = 16
-        Max = 255
+        Max = 300
         OnChange = light1TrackBarChange
         PageSize = 16
         Position = 0
@@ -306,7 +306,7 @@ object SettingsForm: TSettingsForm
         Top = 146
         Width = 190
         Frequency = 16
-        Max = 255
+        Max = 300
         OnChange = light2TrackBarChange
         PageSize = 16
         Position = 0
@@ -384,11 +384,55 @@ object SettingsForm: TSettingsForm
         ParentFont = False
         TabOrder = 2
       end
+      object Label10: TLabel
+        AnchorSideLeft.Control = Label9
+        AnchorSideTop.Control = light3TrackBar
+        Left = 5
+        Height = 15
+        Top = 171
+        Width = 39
+        Align = alCustom
+        Caption = 'Light 3:'
+        Font.CharSet = ANSI_CHARSET
+        Font.Color = clWhite
+        Font.Height = -12
+        Font.Name = 'Segoe UI'
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        ParentColor = False
+        ParentFont = False
+      end
+      object light3TrackBar: TTrackBar
+        AnchorSideLeft.Control = light1TrackBar
+        AnchorSideTop.Control = light2TrackBar
+        AnchorSideTop.Side = asrBottom
+        AnchorSideRight.Control = light1TrackBar
+        AnchorSideRight.Side = asrBottom
+        Left = 104
+        Height = 25
+        Top = 171
+        Width = 190
+        Frequency = 16
+        Max = 300
+        OnChange = light3TrackBarChange
+        PageSize = 16
+        Position = 0
+        Align = alCustom
+        Anchors = [akTop, akLeft, akRight]
+        Font.CharSet = ANSI_CHARSET
+        Font.Color = clWhite
+        Font.Height = -12
+        Font.Name = 'Segoe UI'
+        Font.Pitch = fpVariable
+        Font.Quality = fqDraft
+        ParentFont = False
+        TabOrder = 7
+      end
     end
     object GroupBox2: TGroupBox
       Left = 1
       Height = 130
-      Top = 231
+      Top = 256
       Width = 298
       Align = alTop
       AutoSize = True
@@ -652,7 +696,7 @@ object SettingsForm: TSettingsForm
     object RestartButton: TButton
       Left = 1
       Height = 25
-      Top = 361
+      Top = 386
       Width = 298
       Align = alTop
       Caption = '...'
@@ -670,7 +714,7 @@ object SettingsForm: TSettingsForm
     object GroupBox3: TGroupBox
       Left = 1
       Height = 39
-      Top = 192
+      Top = 217
       Width = 298
       Align = alTop
       AutoSize = True

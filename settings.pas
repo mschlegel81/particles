@@ -13,6 +13,8 @@ TYPE
   { TSettingsForm }
 
   TSettingsForm = class(TForm)
+    Label10: TLabel;
+    light3TrackBar: TTrackBar;
     lockXRotationCheckbox: TCheckBox;
     lockYRotationCheckbox: TCheckBox;
     GroupBox3: TGroupBox;
@@ -59,6 +61,7 @@ TYPE
     PROCEDURE fpsTrackBarChange(Sender: TObject);
     PROCEDURE light1TrackBarChange(Sender: TObject);
     PROCEDURE light2TrackBarChange(Sender: TObject);
+    PROCEDURE light3TrackBarChange(Sender: TObject);
     PROCEDURE lockSetupCheckBoxChange(Sender: TObject);
     PROCEDURE lockXRotationCheckboxChange(Sender: TObject);
     PROCEDURE lockYRotationCheckboxChange(Sender: TObject);
@@ -114,6 +117,7 @@ PROCEDURE TSettingsForm.FormCreate(Sender: TObject);
     flatShadingCheckBox.checked:=viewState.flatShading;
     light1TrackBar.position:=round(255*viewState.light1Brightness);
     light2TrackBar.position:=round(255*viewState.light2Brightness);
+    light3TrackBar.position:=round(255*viewState.light3Brightness);
 
     speedTrackBar.position:=round(ln(viewState.ParticleEngine.TICKS_PER_SIMULATION_TIME_UNIT/1000)*100/ln(0.1));
     switchTimeTrackBar.position:=round(viewState.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS/100);
@@ -176,6 +180,11 @@ PROCEDURE TSettingsForm.light1TrackBarChange(Sender: TObject);
 PROCEDURE TSettingsForm.light2TrackBarChange(Sender: TObject);
   begin
     viewState.light2Brightness:=light2TrackBar.position/255;
+  end;
+
+PROCEDURE TSettingsForm.light3TrackBarChange(Sender: TObject);
+  begin
+    viewState.light3Brightness:=light3TrackBar.position/255;
   end;
 
 PROCEDURE TSettingsForm.lockSetupCheckBoxChange(Sender: TObject);
