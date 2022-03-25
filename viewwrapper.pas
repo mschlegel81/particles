@@ -13,9 +13,6 @@ USES
   EpikTimer;
 
 TYPE
-
-  { T_viewState }
-
   T_viewState=object(T_serializable)
     private
       //OpenGL variables
@@ -36,7 +33,7 @@ TYPE
       //Frame rate control
       frameTimer    : TEpikTimer;
       frameCount    : integer;
-      LastFrameTicks: integer;
+      LastFrameTicks: double;
       sleepTimeMilliseconds:double;
       TARGET_FPS:longint;
       TARGET_TICKS_PER_FRAME:double;
@@ -62,7 +59,7 @@ TYPE
       PROCEDURE setHemispheres(CONST value:boolean);
     public
       //Physics time
-      modeTicks     : integer;
+      modeTicks     : double;
       ParticleEngine: TParticleEngine;
 
       CONSTRUCTOR create(control:TOpenGLControl);
@@ -85,9 +82,6 @@ TYPE
 
 IMPLEMENTATION
 USES LCLProc;
-
-{ T_viewState }
-
 CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
   begin
     OpenGLControl:=control;
@@ -310,19 +304,18 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
   VAR ax:double=az;
       ay:double=az;
       timer:single;
-      tickDelta: integer;
-
+      tickDelta: double;
+      sleepMs:longint;
   begin
     inc(frameCount);
-    tickDelta:=round(frameTimer.elapsed*1000);
-    inc(modeTicks     ,tickDelta);
-    inc(LastFrameTicks,tickDelta);
-    DebugLn(['Tick delta: ',tickDelta,'; ',frameTimer.elapsed]);
+    tickDelta:=frameTimer.elapsed*1000;
     frameTimer.clear;
     frameTimer.start;
+    modeTicks     +=tickDelta;
+    LastFrameTicks+=tickDelta;
     if (LastFrameTicks>=1000) then begin
       measuredFps:=frameCount*1000/LastFrameTicks;
-      dec(LastFrameTicks,1000);
+      LastFrameTicks-=1000;
       frameCount:=0;
     end;
 
@@ -330,9 +323,15 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       if not AreaInitialized then initializeArea;
       timer:=ParticleEngine.update(modeTicks);
 
-      sleepTimeMilliseconds:=sleepTimeMilliseconds+0.01*(TARGET_TICKS_PER_FRAME-tickDelta);
+      sleepTimeMilliseconds+=(TARGET_TICKS_PER_FRAME-tickDelta);
       if sleepTimeMilliseconds<0 then sleepTimeMilliseconds:=0;
-      sleep(trunc(sleepTimeMilliseconds));
+      sleepMs:=trunc(sleepTimeMilliseconds);
+      sleepTimeMilliseconds:=frac(sleepTimeMilliseconds);
+      if sleepMs>0 then begin
+        sleep(sleepMs);
+        DebugLn(['ST ',sleepMs,' rest: ',sleepTimeMilliseconds]);
+      end;
+      sleepTimeMilliseconds:=frac(sleepTimeMilliseconds);
 
       //Update rotation angles
       if (mouseIsDown<>1) then begin

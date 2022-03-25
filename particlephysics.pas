@@ -22,7 +22,7 @@ TYPE
     spherePoints: array [0..1023] of TVector3;
     colorDelta  : array [0..1023] of TVector3;
     //State
-    lastModeTicks:longint;
+    lastModeTicks:double;
     attractionMode:byte;
     commonTargetColor:TVector3;
     commonSaturation,commonHueOffset:TGLfloat;
@@ -68,7 +68,7 @@ TYPE
     PROCEDURE updateA_X2(CONST progress: double);
 
     PROCEDURE switchAttractionMode(CONST forcedMode:byte=255);
-    PROCEDURE MoveParticles(CONST modeTicks:longint);
+    PROCEDURE MoveParticles(CONST modeTicks:double);
 
     FUNCTION capSubSteps(CONST proposedSubSteps:double; CONST otherProposedSubSteps:double=0):longint;
   public
@@ -78,8 +78,8 @@ TYPE
 
     CONSTRUCTOR create;
     DESTRUCTOR destroy; override;
-    FUNCTION update(VAR modeTicks:longint):single;
-    PROCEDURE nextSetup(VAR modeTicks:longint; CONST forcedMode:byte=255);
+    FUNCTION update(VAR modeTicks:double):single;
+    PROCEDURE nextSetup(VAR modeTicks:double; CONST forcedMode:byte=255);
     PROCEDURE DrawParticles(CONST ParticleList: GLuint; CONST particleRotX,particleRotY:GLfloat);
     PROPERTY currentAttractionMode:byte read attractionMode;
 
@@ -147,7 +147,7 @@ CONST
 FUNCTION accel(CONST v,p,target:TVector3; CONST springConstant,dampingFctor:double):TVector3;
   begin result:=(target-p)*springConstant+v*(euklideanNorm(v)*dampingFctor); end;
 
-PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: longint);
+PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: double);
 
   PROCEDURE fixBrokenPositions;
     FUNCTION anyInvalid(CONST v:TVector3):boolean; inline;
@@ -1260,7 +1260,7 @@ DESTRUCTOR TParticleEngine.destroy;
     inherited destroy;
   end;
 
-FUNCTION TParticleEngine.update(VAR modeTicks: longint): single;
+FUNCTION TParticleEngine.update(VAR modeTicks: double): single;
   begin
     if modeTicks<=lastModeTicks then modeTicks:=lastModeTicks+1;
     result:=(modeTicks-lastModeTicks)*1E-3; //approximate dt in seconds
@@ -1272,7 +1272,7 @@ FUNCTION TParticleEngine.update(VAR modeTicks: longint): single;
     end;
   end;
 
-PROCEDURE TParticleEngine.nextSetup(VAR modeTicks: longint; CONST forcedMode:byte=255);
+PROCEDURE TParticleEngine.nextSetup(VAR modeTicks: double; CONST forcedMode:byte=255);
   begin
     modeTicks:=0;
     lastModeTicks:=0;
