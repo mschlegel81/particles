@@ -14,7 +14,9 @@ TYPE
 
   TSettingsForm = class(TForm)
     Label10: TLabel;
+    Label11: TLabel;
     light3TrackBar: TTrackBar;
+    shininessTrackBar: TTrackBar;
     lockXRotationCheckbox: TCheckBox;
     lockYRotationCheckbox: TCheckBox;
     GroupBox3: TGroupBox;
@@ -67,6 +69,7 @@ TYPE
     PROCEDURE lockYRotationCheckboxChange(Sender: TObject);
     PROCEDURE OpenGlControl1DblClick(Sender: TObject);
     PROCEDURE RestartButtonClick(Sender: TObject);
+    PROCEDURE shininessTrackBarChange(Sender: TObject);
     PROCEDURE speedTrackBarChange(Sender: TObject);
     PROCEDURE switchSetupButtonClick(Sender: TObject);
     PROCEDURE switchTimeTrackBarChange(Sender: TObject);
@@ -126,6 +129,8 @@ PROCEDURE TSettingsForm.FormCreate(Sender: TObject);
 
     lockXRotationCheckbox.checked:=viewState.lockXRotation;
     lockYRotationCheckbox.checked:=viewState.lockYRotation;
+
+    shininessTrackBar.position:=round(viewState.materialShininess);
 
     Application.OnIdle:=@IdleFunc;
   end;
@@ -222,6 +227,11 @@ PROCEDURE TSettingsForm.RestartButtonClick(Sender: TObject);
     viewState.saveToFile(ChangeFileExt(paramStr(0),'.settings'));
     Process.execute;
     halt;
+  end;
+
+PROCEDURE TSettingsForm.shininessTrackBarChange(Sender: TObject);
+  begin
+    viewState.materialShininess:=shininessTrackBar.position;
   end;
 
 PROCEDURE TSettingsForm.speedTrackBarChange(Sender: TObject);

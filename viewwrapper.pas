@@ -72,6 +72,7 @@ TYPE
     public
       //Physics time
       modeTicks     : double;
+      materialShininess: GLfloat;
       ParticleEngine: TParticleEngine;
 
       CONSTRUCTOR create(control:TOpenGLControl);
@@ -137,6 +138,8 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
       specular[1]:=1;
       specular[2]:=1;
       specular[3]:=0.0;
+
+      materialShininess:=80;
     end;
 
     with geometry do begin
@@ -150,7 +153,7 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
 
 FUNCTION T_viewState.getSerialVersion: dword;
   begin
-    result:=4;
+    result:=5;
   end;
 
 FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): boolean;
@@ -164,6 +167,7 @@ FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): b
     light1Brightness:=stream.readSingle;
     light2Brightness:=stream.readSingle;
     light3Brightness:=stream.readSingle;
+    materialShininess:=stream.readSingle;
     with rotation do begin
       lockX:=stream.readBoolean;
       if lockX then rx:=stream.readSingle;
@@ -184,6 +188,7 @@ PROCEDURE T_viewState.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
     stream.writeSingle(light1Brightness);
     stream.writeSingle(light2Brightness);
     stream.writeSingle(light3Brightness);
+    stream.writeSingle(materialShininess);
     with rotation do begin
       stream.writeBoolean(lockX);
       if lockX then stream.writeSingle(rx);
@@ -406,7 +411,7 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glEnable(GL_BLEND);
       glColorMaterial(GL_FRONT,GL_AMBIENT_AND_DIFFUSE);
       glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
-      glMaterialf(GL_FRONT, GL_SHININESS, 80.0);
+      glMaterialf(GL_FRONT, GL_SHININESS, materialShininess);
       if geometry.hemispheres_
       then ParticleEngine.DrawParticles(geometry.ParticleList,-rotation.rx,-rotation.ry)
       else ParticleEngine.DrawParticles(geometry.ParticleList,           0,           0);
