@@ -13,9 +13,6 @@ TYPE
 
   FUpdateAcceleration              =PROCEDURE(CONST progress:double) of object;
   FUpdateAccelerationNoninteracting=PROCEDURE(CONST progress:double; CONST particleIndex:longint) of object;
-
-  { TParticleEngine }
-
   TParticleEngine = class
   private
     //Pseudo constants
@@ -404,6 +401,7 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: double);
 
   PROCEDURE fireworks;
     CONST fallAcceleration:TVector3=(0,-1,0);
+          MAX_PARTICLES_IN_GROUP=256;
 
     FUNCTION formNewFallingGroup:boolean;
       VAR k,i,groupIndex:longint;
@@ -411,10 +409,10 @@ PROCEDURE TParticleEngine.MoveParticles(CONST modeTicks: double);
       begin
         groupIndex:=length(fireworkGroups);
         setLength(fireworkGroups,groupIndex+1);
-        setLength(fireworkGroups[groupIndex],length(Particle));
+        setLength(fireworkGroups[groupIndex],MAX_PARTICLES_IN_GROUP);
         result:=false;
         k:=0;
-        for i:=0 to length(Particle)-1 do if Particle[i].p[1]<-1 then begin
+        for i:=0 to length(Particle)-1 do if (Particle[i].p[1]<-1) and (k<MAX_PARTICLES_IN_GROUP) then begin
           fireworkGroups[groupIndex][k]:=i;
           inc(k);
           result:=true;
@@ -711,16 +709,15 @@ PROCEDURE TParticleEngine.updateA_cube(CONST progress: double;
 PROCEDURE TParticleEngine.updateA_heart(CONST progress: double;
   CONST particleIndex: longint);
   VAR tau,pr:double;
-
       tp :TVector3;
   begin
     pr:=min(1,progress*1.2);
     with Particle[particleIndex] do begin
-      tau:=(particleIndex/length(Particle)+2*progress)*2*pi;
-      tp [2]:=0.75  *sin(tau)-pr*0.25  *sin(3*tau);
-      tp [1]:=0.8125*cos(tau)-pr*(0.3125*cos(2*tau)+pr*(0.125*cos(3*tau)+0.0625*cos(4*tau)));
+      tau:=(particleIndex/length(Particle)+progress)*2*pi;
+      tp [2]:=pr*0.75  *sin(tau)-0.25  *sin(3*tau);
+      tp [1]:=pr*0.8125*cos(tau)-0.3125*cos(2*tau)-0.125*cos(3*tau)-0.0625*cos(4*tau);
       tp [0]:=0;
-      a:=accel(v,p,tp+colorDelta[particleIndex]*(1-pr),50,-20)
+      a:=accel(v,p,tp,10+40*pr,-20*pr)
     end;
   end;
 
