@@ -24,7 +24,10 @@ TYPE
       AreaInitialized: boolean;
       flatShading_:boolean;
       //View rotation:
-      rx,ry: single;
+      rotation:record
+        rx,ry: single;
+        lockX,lockY:boolean;
+      end;
 
       ballRefinement_:byte;
       ballSize_:single;
@@ -72,6 +75,9 @@ TYPE
       PROPERTY light2Brightness:TGLfloat read getLight2Brightness write setLight2Brightness;
       PROPERTY flatShading:boolean read flatShading_ write setFlatShading;
       PROPERTY hemispheres:boolean read hemispheres_ write setHemispheres;
+
+      PROPERTY lockXRotation: boolean read rotation.lockX write rotation.lockX;
+      PROPERTY lockYRotation: boolean read rotation.lockY write rotation.lockY;
 
       FUNCTION getSerialVersion:dword; virtual;
       FUNCTION loadFromStream(VAR stream:T_bufferedInputStreamWrapper):boolean; virtual;
@@ -121,7 +127,7 @@ CONSTRUCTOR T_viewState.create(control: TOpenGLControl);
 
 FUNCTION T_viewState.getSerialVersion: dword;
   begin
-    result:=2;
+    result:=3;
   end;
 
 FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): boolean;
@@ -134,6 +140,12 @@ FUNCTION T_viewState.loadFromStream(VAR stream: T_bufferedInputStreamWrapper): b
     setTargetFPS(stream.readLongint);
     light1Brightness:=stream.readSingle;
     light2Brightness:=stream.readSingle;
+    with rotation do begin
+      lockX:=stream.readBoolean;
+      if lockX then rx:=stream.readSingle;
+      lockY:=stream.readBoolean;
+      if lockY then ry:=stream.readSingle;
+    end;
     result:=ParticleEngine.loadFromStream(stream) and stream.allOkay;
   end;
 
@@ -147,6 +159,12 @@ PROCEDURE T_viewState.saveToStream(VAR stream: T_bufferedOutputStreamWrapper);
     stream.writeLongint(targetFPS);
     stream.writeSingle(light1Brightness);
     stream.writeSingle(light2Brightness);
+    with rotation do begin
+      stream.writeBoolean(lockX);
+      if lockX then stream.writeSingle(rx);
+      stream.writeBoolean(lockY);
+      if lockY then stream.writeSingle(ry);
+    end;
     ParticleEngine.saveToStream(stream);
   end;
 
@@ -171,8 +189,8 @@ PROCEDURE T_viewState.viewMouseMove(Sender: TObject; Shift: TShiftState; X,
   Y: integer);
   begin
     if mouseIsDown<>1 then exit;
-    ry+=(x-mouseX)/OpenGLControl.width*180;
-    rx+=(y-mouseY)/OpenGLControl.height*180;
+    rotation.ry+=(x-mouseX)/OpenGLControl.width*180;
+    rotation.rx+=(y-mouseY)/OpenGLControl.height*180;
     mouseX:=x;
     mouseY:=y;
   end;
@@ -334,11 +352,14 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       sleepTimeMilliseconds:=frac(sleepTimeMilliseconds);
 
       //Update rotation angles
-      if (mouseIsDown<>1) then begin
-        if ParticleEngine.currentAttractionMode=CLOCK_TARGET
-        then ry-=ry*timer
-        else ry+=10*timer;
-        rx-=rx*timer;
+      if (mouseIsDown<>1) then with rotation do begin
+        if not(lockY) then begin
+          if ParticleEngine.currentAttractionMode=CLOCK_TARGET
+          then ry-=ry*timer
+          else ry+=10*timer;
+        end;
+        if not(lockX)
+        then rx-=rx*timer;
 
         if ry> 180 then ry-=360;
         if ry<-180 then ry+=360;
@@ -356,8 +377,8 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glTranslatef(0,0,-5);
       glScalef(ax,ay,az);
       //Rotate
-      glRotatef(rx,0.1,0.0,0.0);
-      glRotatef(ry,0.0,1.0,0.0);
+      glRotatef(rotation.rx,0.1,0.0,0.0);
+      glRotatef(rotation.ry,0.0,1.0,0.0);
       //Draw
       glLightfv(GL_LIGHT0,GL_POSITION,lightpos);
       glLightfv(GL_LIGHT1,GL_POSITION,lightpos);
@@ -366,8 +387,8 @@ PROCEDURE T_viewState.viewPaint(Sender: TObject);
       glMaterialfv(GL_FRONT, GL_SPECULAR, @specular_white);
       glMaterialf(GL_FRONT, GL_SHININESS, 80.0);
       if hemispheres_
-      then ParticleEngine.DrawParticles(ParticleList,-rx,-ry)
-      else ParticleEngine.DrawParticles(ParticleList,  0,  0);
+      then ParticleEngine.DrawParticles(ParticleList,-rotation.rx,-rotation.ry)
+      else ParticleEngine.DrawParticles(ParticleList,           0,           0);
       glDisable(GL_BLEND);
       glPopMatrix;
       OpenGLControl.SwapBuffers;

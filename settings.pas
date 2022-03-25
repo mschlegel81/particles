@@ -13,6 +13,9 @@ TYPE
   { TSettingsForm }
 
   TSettingsForm = class(TForm)
+    lockXRotationCheckbox: TCheckBox;
+    lockYRotationCheckbox: TCheckBox;
+    GroupBox3: TGroupBox;
     Label9: TLabel;
     OpenGLControl1: TOpenGLControl;
     Panel1: TPanel;
@@ -57,6 +60,8 @@ TYPE
     PROCEDURE light1TrackBarChange(Sender: TObject);
     PROCEDURE light2TrackBarChange(Sender: TObject);
     PROCEDURE lockSetupCheckBoxChange(Sender: TObject);
+    PROCEDURE lockXRotationCheckboxChange(Sender: TObject);
+    PROCEDURE lockYRotationCheckboxChange(Sender: TObject);
     PROCEDURE OpenGlControl1DblClick(Sender: TObject);
     PROCEDURE RestartButtonClick(Sender: TObject);
     PROCEDURE speedTrackBarChange(Sender: TObject);
@@ -66,7 +71,7 @@ TYPE
 
     PROCEDURE IdleFunc(Sender: TObject; VAR done: boolean);
   private
-    viewState:^T_viewState;
+    viewState:T_viewState;
   public
 
   end;
@@ -89,29 +94,34 @@ PROCEDURE TSettingsForm.FormCreate(Sender: TObject);
       WindowState:=wsFullScreen;
       BorderStyle:=bsNone;
     end;
-    new(viewState,create(OpenGLControl1));
-    viewState^.loadFromFile(ChangeFileExt(paramStr(0),'.settings'));
+    viewState.create(OpenGLControl1);
+    viewState.loadFromFile(ChangeFileExt(paramStr(0),'.settings'));
 
     setupComboBox.items.clear;
     for i:=0 to ATTRACTION_MODE_COUNT-1 do setupComboBox.items.add(ATTRACTION_MODE_NAME[i]);
     setupComboBox.items.add('<random>');
+    if viewState.ParticleEngine.lockCurrentSetup
+    then setupComboBox.ItemIndex:=viewState.ParticleEngine.currentAttractionMode;
 
     if currentlyWindowed
     then RestartButton.caption:='Restart in fullscreen mode'
     else RestartButton.caption:='Restart in windowed mode';
 
-    fpsTrackBar.position:=viewState^.targetFPS;
-    ballSizeTrackBar.position:=round(ln(viewState^.ballSize/0.01)/ln(0.2/0.01)*ballSizeTrackBar.max);
-    BallQualityTrackBar.position:=viewState^.ballRefinement;
-    hemisphereCheckBox.checked:=viewState^.hemispheres;
-    flatShadingCheckBox.checked:=viewState^.flatShading;
-    light1TrackBar.position:=round(255*viewState^.light1Brightness);
-    light2TrackBar.position:=round(255*viewState^.light2Brightness);
+    fpsTrackBar.position:=viewState.targetFPS;
+    ballSizeTrackBar.position:=round(ln(viewState.ballSize/0.01)/ln(0.2/0.01)*ballSizeTrackBar.max);
+    BallQualityTrackBar.position:=viewState.ballRefinement;
+    hemisphereCheckBox.checked:=viewState.hemispheres;
+    flatShadingCheckBox.checked:=viewState.flatShading;
+    light1TrackBar.position:=round(255*viewState.light1Brightness);
+    light2TrackBar.position:=round(255*viewState.light2Brightness);
 
-    speedTrackBar.position:=round(ln(viewState^.ParticleEngine.TICKS_PER_SIMULATION_TIME_UNIT/1000)*100/ln(0.1));
-    switchTimeTrackBar.position:=round(viewState^.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS/100);
+    speedTrackBar.position:=round(ln(viewState.ParticleEngine.TICKS_PER_SIMULATION_TIME_UNIT/1000)*100/ln(0.1));
+    switchTimeTrackBar.position:=round(viewState.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS/100);
     switchTimeLabel.caption:=formatFloat('00.0',switchTimeTrackBar.position*0.1)+'s';
-    lockSetupCheckBox.checked:=viewState^.ParticleEngine.lockCurrentSetup;
+    lockSetupCheckBox.checked:=viewState.ParticleEngine.lockCurrentSetup;
+
+    lockXRotationCheckbox.checked:=viewState.lockXRotation;
+    lockYRotationCheckbox.checked:=viewState.lockYRotation;
 
     Application.OnIdle:=@IdleFunc;
   end;
@@ -119,7 +129,7 @@ PROCEDURE TSettingsForm.FormCreate(Sender: TObject);
 PROCEDURE TSettingsForm.ballSizeTrackBarChange(Sender: TObject);
   begin
     //range: 0.001 - 0.2
-    viewState^.ballSize:=0.01*exp(ln(0.2/0.01)*ballSizeTrackBar.position/ballSizeTrackBar.max);
+    viewState.ballSize:=0.01*exp(ln(0.2/0.01)*ballSizeTrackBar.position/ballSizeTrackBar.max);
   end;
 
 PROCEDURE TSettingsForm.FormResize(Sender: TObject);
@@ -132,45 +142,55 @@ PROCEDURE TSettingsForm.FormResize(Sender: TObject);
 
 PROCEDURE TSettingsForm.BallQualityTrackBarChange(Sender: TObject);
   begin
-    viewState^.ballRefinement:=BallQualityTrackBar.position;
+    viewState.ballRefinement:=BallQualityTrackBar.position;
   end;
 
 PROCEDURE TSettingsForm.hemisphereCheckBoxChange(Sender: TObject);
   begin
-    viewState^.hemispheres:=hemisphereCheckBox.checked;
+    viewState.hemispheres:=hemisphereCheckBox.checked;
   end;
 
 PROCEDURE TSettingsForm.flatShadingCheckBoxChange(Sender: TObject);
   begin
-    viewState^.flatShading:=flatShadingCheckBox.checked;
+    viewState.flatShading:=flatShadingCheckBox.checked;
   end;
 
 PROCEDURE TSettingsForm.FormDestroy(Sender: TObject);
   begin
-    viewState^.saveToFile(ChangeFileExt(paramStr(0),'.settings'));
+    viewState.saveToFile(ChangeFileExt(paramStr(0),'.settings'));
   end;
 
 PROCEDURE TSettingsForm.fpsTrackBarChange(Sender: TObject);
   begin
-    viewState^.targetFPS:=fpsTrackBar.position;
-    if viewState^.targetFPS>100
+    viewState.targetFPS:=fpsTrackBar.position;
+    if viewState.targetFPS>100
     then fpsTargetLabel.caption:='max'
-    else fpsTargetLabel.caption:=intToStr(viewState^.targetFPS);
+    else fpsTargetLabel.caption:=intToStr(viewState.targetFPS);
   end;
 
 PROCEDURE TSettingsForm.light1TrackBarChange(Sender: TObject);
   begin
-    viewState^.light1Brightness:=light1TrackBar.position/255;
+    viewState.light1Brightness:=light1TrackBar.position/255;
   end;
 
 PROCEDURE TSettingsForm.light2TrackBarChange(Sender: TObject);
   begin
-    viewState^.light2Brightness:=light2TrackBar.position/255;
+    viewState.light2Brightness:=light2TrackBar.position/255;
   end;
 
 PROCEDURE TSettingsForm.lockSetupCheckBoxChange(Sender: TObject);
   begin
-    viewState^.ParticleEngine.lockCurrentSetup:=lockSetupCheckBox.checked;
+    viewState.ParticleEngine.lockCurrentSetup:=lockSetupCheckBox.checked;
+  end;
+
+PROCEDURE TSettingsForm.lockXRotationCheckboxChange(Sender: TObject);
+  begin
+    viewState.lockXRotation:=lockXRotationCheckbox.checked;
+  end;
+
+PROCEDURE TSettingsForm.lockYRotationCheckboxChange(Sender: TObject);
+  begin
+    viewState.lockYRotation:=lockYRotationCheckbox.checked;
   end;
 
 PROCEDURE TSettingsForm.OpenGlControl1DblClick(Sender: TObject);
@@ -190,34 +210,34 @@ PROCEDURE TSettingsForm.RestartButtonClick(Sender: TObject);
     Process.options:=[poDetached];
     Process.executable:=paramStr(0);
     if not(currentlyWindowed) then Process.parameters.add('-windowed');
-    viewState^.saveToFile(ChangeFileExt(paramStr(0),'.settings'));
+    viewState.saveToFile(ChangeFileExt(paramStr(0),'.settings'));
     Process.execute;
     halt;
   end;
 
 PROCEDURE TSettingsForm.speedTrackBarChange(Sender: TObject);
   begin
-    viewState^.ParticleEngine.TICKS_PER_SIMULATION_TIME_UNIT:=1000*exp(speedTrackBar.position/100*ln(0.1));
+    viewState.ParticleEngine.TICKS_PER_SIMULATION_TIME_UNIT:=1000*exp(speedTrackBar.position/100*ln(0.1));
   end;
 
 PROCEDURE TSettingsForm.switchSetupButtonClick(Sender: TObject);
   begin
     if setupComboBox.ItemIndex>=0
-    then viewState^.ParticleEngine.nextSetup(viewState^.modeTicks,setupComboBox.ItemIndex)
-    else viewState^.ParticleEngine.nextSetup(viewState^.modeTicks);
+    then viewState.ParticleEngine.nextSetup(viewState.modeTicks,setupComboBox.ItemIndex)
+    else viewState.ParticleEngine.nextSetup(viewState.modeTicks);
   end;
 
 PROCEDURE TSettingsForm.switchTimeTrackBarChange(Sender: TObject);
   begin
-    viewState^.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS:=switchTimeTrackBar.position*100;
+    viewState.ParticleEngine.MODE_SWITCH_INTERVAL_IN_TICKS:=switchTimeTrackBar.position*100;
     switchTimeLabel.caption:=formatFloat('00.0',switchTimeTrackBar.position*0.1)+'s';
   end;
 
 PROCEDURE TSettingsForm.updateFPSTimerTimer(Sender: TObject);
   begin
-    fpsMeasuredLabel.caption:=formatFloat('00.0',viewState^.getFps);
-    ScenarioProgressBar.position:=viewState^.modeTicks;
-    currentScenarioLabel.caption:=ATTRACTION_MODE_NAME[viewState^.ParticleEngine.currentAttractionMode];
+    fpsMeasuredLabel.caption:=formatFloat('00.0',viewState.getFps);
+    ScenarioProgressBar.position:=round(viewState.modeTicks);
+    currentScenarioLabel.caption:=ATTRACTION_MODE_NAME[viewState.ParticleEngine.currentAttractionMode];
   end;
 
 PROCEDURE TSettingsForm.IdleFunc(Sender: TObject; VAR done: boolean);
